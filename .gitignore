@@ -3,6 +3,8 @@
 
 ### Personal ###
 .git
+data/*
+!data/.gitkeep
 
 ### macOS ###
 # General
