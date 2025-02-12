@@ -1,5 +1,6 @@
 services:
   airflow:
+    container_name: airflow
     build: .
     ports:
       - 8080:8080
