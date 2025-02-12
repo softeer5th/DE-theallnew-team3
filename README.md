@@ -16,3 +16,10 @@ project
       └─ __init__.py
 
 ```
+
+## 로컬 ETL 테스트
+
+```
+python src/etl.py '2025-01' '투싼'
+```
+
