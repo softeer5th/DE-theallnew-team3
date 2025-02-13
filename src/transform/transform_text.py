@@ -44,6 +44,7 @@ def to_cleaned(df):
     df = df.withColumn("text", regexp_replace(col("text"), r"@\S+", ""))
     df = df.withColumn("text", regexp_replace(col("text"), r"#\S+", ""))
 
+    df = df.withColumn("text", regexp_replace("text", r'[",\[\]]+', ''))
     df = df.withColumn("text", regexp_replace(col("text"), r"([.!?,~])\1+", "$1"))
 
     df = df.withColumn(
