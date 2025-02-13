@@ -1,0 +1,5 @@
+*/venv/
+*/package/
+*.zip
+input.json
+out.json
