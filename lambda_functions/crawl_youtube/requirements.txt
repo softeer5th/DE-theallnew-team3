@@ -1,0 +1,4 @@
+requests==2.32.3
+google-api-python-client==2.160.0
+youtube-comment-downloader==0.1.76
+regex==2024.11.6
