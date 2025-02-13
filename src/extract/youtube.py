@@ -1,3 +1,4 @@
+from dotenv import load_dotenv
 import os
 import json
 import time
@@ -5,8 +6,9 @@ from datetime import datetime
 from googleapiclient.discovery import build
 from youtube_comment_downloader import YoutubeCommentDownloader, SORT_BY_POPULAR
 
-# API 키 입력
-API_KEY = ""  # YouTube API 키 입력
+
+load_dotenv()
+API_KEY = os.getenv('YOUTUBE_API_KEY')
 
 
 def collect_target_videos(input_date, car_name):
