@@ -24,7 +24,7 @@ mkdir "$PACKAGE_DIR"
 
 source "$VENV_PATH/bin/activate"
 pip install --upgrade pip
-pip install -r "requirements.txt" -t "$PACKAGE_DIR"
+pip install --platform manylinux2014_aarch64 --only-binary=:all: -r "requirements.txt" -t "$PACKAGE_DIR"
 
 rm -f "$ZIP_FILE"
 
