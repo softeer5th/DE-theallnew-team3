@@ -144,4 +144,4 @@ def transform_llm(input_date, car_name):
     # 🔹 완료 메시지 출력
     print(f"분석 결과가 CSV 파일로 저장되었습니다: {csv_output}")
 
-transform_llm("input_date", "car_name")
+#transform_llm("input_date", "car_name")
