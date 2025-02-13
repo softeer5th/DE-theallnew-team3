@@ -6,6 +6,7 @@ from pyspark.sql.functions import col, lower, regexp_replace, trim, length
 
 SOURCE_TYPE = "youtube"
 
+
 def to_flattend(df):
     title_df = df.select(
         col("title").alias("text"),
@@ -34,6 +35,7 @@ def to_flattend(df):
     flattened_df = title_df.union(article_df).union(comment_df)
     return flattened_df
 
+
 def to_cleaned(df):
     df = df.withColumn("text", lower(col("text")))
 
@@ -44,7 +46,12 @@ def to_cleaned(df):
 
     df = df.withColumn("text", regexp_replace(col("text"), r"([.!?,~])\1+", "$1"))
 
-    df = df.withColumn("text", regexp_replace(col("text"), r"[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF\u00A0]", ""))
+    df = df.withColumn(
+        "text",
+        regexp_replace(
+            col("text"), r"[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF\u00A0]", ""
+        ),
+    )
     df = df.withColumn("text", trim(regexp_replace(col("text"), r"\s+", " ")))
 
     df = df.withColumn("text", regexp_replace(col("text"), r"투산+", "투싼"))
@@ -53,12 +60,13 @@ def to_cleaned(df):
     df = df.filter(length(col("text")) > 10)
     return df
 
+
 def unify_staging_data(input_json):
-    sources = ['youtube', 'bobae', 'clien']
+    sources = ["youtube", "clien"]
 
     unified_data = []
     for source in sources:
-        source_data_file = f'{source}_{input_json}'
+        source_data_file = f"{source}_{input_json}"
 
         with open(f"data/{source_data_file}", "r", encoding="utf-8") as f:
             source_data = json.load(f)
@@ -66,6 +74,7 @@ def unify_staging_data(input_json):
 
     with open(f"data/{input_json}", "w", encoding="utf-8") as f:
         json.dump(unified_data, f, ensure_ascii=False, indent=4)
+
 
 def transform_text(input_date, car_name):
     spark = (
@@ -75,7 +84,7 @@ def transform_text(input_date, car_name):
         .getOrCreate()
     )
 
-    input_json = f'{input_date}_{car_name}.json'
+    input_json = f"{input_date}_{car_name}.json"
     unify_staging_data(input_json)
 
     df = spark.read.json(f"data/{input_json}", multiLine=True)
@@ -83,6 +92,6 @@ def transform_text(input_date, car_name):
     df = to_flattend(df)
     df = to_cleaned(df)
 
-    df.write.csv("data/transformed", header=True, mode="overwrite")
+    df.write.json("data/transformed", mode="overwrite")
 
     spark.stop()

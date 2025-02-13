@@ -5,7 +5,7 @@ from extract.youtube import extract_youtube
 from extract.clien import extract_clien
 
 from transform.transform_text import transform_text
-from transform.openai_batch import transform_llm
+from transform.transform_llm import transform_llm
 
 
 def extract(input_date, car_name):
@@ -23,7 +23,7 @@ def transform(input_date, car_name):
 
 def etl(input_date, car_name):
     print("ETL started")
-    # extract(input_date, car_name)
+    extract(input_date, car_name)
 
     # transform here
     transform(input_date, car_name)
