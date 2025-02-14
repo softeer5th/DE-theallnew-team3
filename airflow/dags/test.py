@@ -1,14 +1,27 @@
 from airflow import DAG
-from airflow.operators.bash import BashOperator
+from airflow.operators.python import PythonOperator
 from datetime import datetime
+import random
 
-# Test DAG
+
+def random_task():
+    if random.random() < 0.5:
+        raise Exception("Random failure")
+    else:
+        print("Success")
+        return "Success"
+
+
 with DAG(
-    "minjae-test", schedule_interval="0 12 * * *", start_date=datetime(2025, 1, 1)
+    "example.slack_notification_test",
+    schedule_interval=None,
+    tags=["test"],
+    description="Test DAG: 50% success, 50% failure. Send slack notification on success or failure.",
 ) as dag:
-    task1 = BashOperator(task_id="task1", bash_command='echo "Hello World"')
-    task2 = BashOperator(task_id="task2", bash_command='echo "I\'m Minjae"')
-    time = datetime.now()
-    task3 = BashOperator(task_id="task3", bash_command=f'echo "time: {time}"')
+    random_success_task = PythonOperator(
+        task_id="random_success_task",
+        python_callable=random_task,
+    )
+    # task2 = TODO: slack operator on success
 
-    [task1, task2] >> task3
+    random_success_task
