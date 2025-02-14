@@ -19,4 +19,4 @@ FUNCTION_NAME="$1"
 INPUT_FILE_PATH="$2"
 OUT_FILE_PATH="$3"
 
-aws lambda invoke --function-name "$FUNCTION_NAME" --payload fileb://"$INPUT_FILE_PATH" "$OUT_FILE_PATH"
+aws lambda invoke --function-name "$FUNCTION_NAME" --payload fileb://"$INPUT_FILE_PATH" "$OUT_FILE_PATH" --cli-read-timeout 300 --cli-connect-timeout 300
