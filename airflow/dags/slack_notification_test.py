@@ -1,5 +1,6 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+from airflow.providers.slack.operators.slack_webhook import SlackWebhookOperator
 from datetime import datetime
 import random
 
@@ -22,6 +23,10 @@ with DAG(
         task_id="random_success_task",
         python_callable=random_task,
     )
-    # task2 = TODO: slack operator on success
+    send_slack_message = SlackWebhookOperator(
+        task_id="slack_webhook_send_text",
+        slack_webhook_conn_id="slack_default",
+        message=("Test Message"),
+    )
 
-    random_success_task
+    random_success_task >> send_slack_message

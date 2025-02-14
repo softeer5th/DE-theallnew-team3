@@ -25,6 +25,10 @@ RUN export $(grep -v '^#' .env | xargs) && \
     --conn-extra '{"region_name": "ap-northeast-2"}'
 RUN export $(grep -v '^#' .env | xargs) && \
     airflow users create -u $USER -p $PASSWORD -f $FIRST_NAME -l $LAST_NAME -r Admin -e $EMAIL
+RUN export $(grep -v '^#' .env | xargs) && \
+    airflow connections add slack_default \
+    --conn-type slackwebhook \
+    --conn-password $SLACK_WEBHOOK_URL
 
 EXPOSE 8080
 
