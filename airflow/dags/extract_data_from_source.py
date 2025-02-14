@@ -32,25 +32,27 @@ with DAG(
     schedule_interval=None,
     description="Extract data from source(youtube, bobae, clien).",
 ) as dag:
+    # TODO: 차종은 어떻게 처리?
     CAR_NAME = "투싼"
+    # TODO: Schedule 기준으로 변경
+    INPUT_DATE = "2025-01"
+    PAYLOAD_JSON = {"input_date": INPUT_DATE, "car_name": CAR_NAME}
+    PAYLOAD = json.dumps(PAYLOAD_JSON)
 
     collect_target_video = LambdaInvokeFunctionOperator(
         task_id="collect_target_video",
         function_name="collect_target_video",
-        aws_conn_id="aws_default",
-        payload={"input_date": "2025-01", "car_name": CAR_NAME},
+        payload=PAYLOAD,
     )
     collect_target_bobae = LambdaInvokeFunctionOperator(
         task_id="collect_target_bobae",
         function_name="collect_target_bobae",
-        aws_conn_id="aws_default",
-        payload={"input_date": "2025-01", "car_name": CAR_NAME},
+        payload=PAYLOAD,
     )
     collect_target_clien = LambdaInvokeFunctionOperator(
         task_id="collect_target_clien",
         function_name="collect_target_clien",
-        aws_conn_id="aws_default",
-        payload={"input_date": "2025-01", "car_name": CAR_NAME},
+        payload=PAYLOAD,
     )
 
     # crawl youtube batch 5
@@ -58,8 +60,7 @@ with DAG(
         LambdaInvokeFunctionOperator(
             task_id=f"crawl_youtube_{i}",
             function_name="crawl_youtube",
-            aws_conn_id="aws_default",
-            payload={"input_date": "2025-01", "car_name": CAR_NAME, "page": i},
+            payload=json.dumps({**PAYLOAD_JSON, "page": i}),
         )
         for i in range(1, 6)
     ]
@@ -67,14 +68,12 @@ with DAG(
     crawl_bobae = LambdaInvokeFunctionOperator(
         task_id="crawl_bobae",
         function_name="crawl_bobae",
-        aws_conn_id="aws_default",
-        payload={"input_date": "2025-01", "car_name": CAR_NAME},
+        payload=PAYLOAD,
     )
     crawl_clien = LambdaInvokeFunctionOperator(
         task_id="crawl_clien",
         function_name="crawl_clien",
-        aws_conn_id="aws_default",
-        payload={"input_date": "2025-01", "car_name": CAR_NAME},
+        payload=PAYLOAD,
     )
 
     success_callback = PythonOperator(
