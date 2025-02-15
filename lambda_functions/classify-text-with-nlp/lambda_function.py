@@ -112,6 +112,7 @@ def lambda_handler(event, context):
 
         input_date = event.get("input_date")
         car_name = event.get("car_name")
+        input_file_key = event.get("input_file_key")
 
         if not input_date or not car_name:
             return {
@@ -125,8 +126,8 @@ def lambda_handler(event, context):
         year, month = input_date.split("-")[:2]
 
         BUCKET_NAME = "the-all-new-bucket"
-        READ_OBJECT_KEY = f"{car_name}/{year}/{month}/youtube_nlp_test.json"
-        WRITE_OBJECT_KEY = f"{car_name}/{year}/{month}/youtube_llm_test.json"
+        READ_OBJECT_KEY = input_file_key
+        WRITE_OBJECT_KEY = f"{car_name}/{year}/{month}/classified_data.json"
 
         # S3에서 데이터 다운로드
         data = download_json_from_s3(BUCKET_NAME, READ_OBJECT_KEY)
