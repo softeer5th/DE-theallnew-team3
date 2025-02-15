@@ -45,15 +45,17 @@ column: text, date(timestamp 형식), view_count, like_count, dislike_count,sour
 - 실행 코드는 기본 버킷(the-all-new-bucket)에 있습니다.  
 
 1. aws 콘솔에서 emr 실행하기  
-<cluster-kga> or <EMR Test> clone하기   
+"cluster-kga" or "EMR Test" clone하기   
 
 Service role for Amazon EMR: AmazonEMR-ServiceRole-20250207T173004   
 EC2 instance profile: AmazonEMR-InstanceProfile-20250207T172947  
 
 2. submit-job.sh 안에 생성한 emr 클러스터 ID로 변경하기  
 
-3. ./submit-job.sh '싼타페' '2025-01'  
-
+3. 스크립트 코드 실행
+```bash  
+./submit-job.sh '싼타페' '2025-01'  
+```
 -> s3a://the-all-new-bucket/싼타페/2025/01/raw_output 에 parquet 형식으로 저장됨.  
 
 클러스터 상태 확인  
