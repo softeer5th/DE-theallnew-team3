@@ -32,7 +32,9 @@ def download_json_from_s3(bucket_name, json_key):
 def analyze_comments_batch(comments):
     """배치로 코멘트 감성 분석 및 주제 분류"""
     try:
-        formatted_comments = "\n".join([f"{i+1}. {comment}" for i, comment in enumerate(comments)])
+        formatted_comments = "\n".join(
+            [f"{i+1}. {comment}" for i, comment in enumerate(comments)]
+        )
 
         prompt = f"""
         아래 자동차 관련 코멘트들의 감성을 분석하고 주제를 분류하세요:
@@ -59,8 +61,7 @@ def analyze_comments_batch(comments):
         """
 
         response = openai.ChatCompletion.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}]
+            model="gpt-4o-mini", messages=[{"role": "user", "content": prompt}]
         )
 
         result_text = response.choices[0].message["content"].strip()
@@ -70,19 +71,31 @@ def analyze_comments_batch(comments):
         for i, line in enumerate(lines):
             try:
                 parts = line.split(", ")
-                sentiment = float(parts[0].split("감성:")[1].strip().replace("[", "").replace("]", ""))
-                topic = parts[1].split("주제:")[1].strip().replace("[", "").replace("]", "")
-                subtopic = parts[2].split("부주제:")[1].strip().replace("[", "").replace("]", "")
+                sentiment = float(
+                    parts[0].split("감성:")[1].strip().replace("[", "").replace("]", "")
+                )
+                topic = (
+                    parts[1].split("주제:")[1].strip().replace("[", "").replace("]", "")
+                )
+                subtopic = (
+                    parts[2]
+                    .split("부주제:")[1]
+                    .strip()
+                    .replace("[", "")
+                    .replace("]", "")
+                )
 
-                results.append({
-                    "text": comments[i],
-                    "sentiment": sentiment,
-                    "topic": topic,
-                    "subtopic": subtopic,
-                    "date": None,
-                    "like_count": None,
-                    "source": "youtube"
-                })
+                results.append(
+                    {
+                        "text": comments[i],
+                        "sentiment": sentiment,
+                        "topic": topic,
+                        "subtopic": subtopic,
+                        "date": None,
+                        "like_count": None,
+                        "source": "youtube",
+                    }
+                )
             except Exception as e:
                 return {"statusCode": 500, "body": json.dumps(str(e))}  # 오류 반환
 
@@ -101,7 +114,10 @@ def lambda_handler(event, context):
         car_name = event.get("car_name")
 
         if not input_date or not car_name:
-            return {"statusCode": 400, "body": json.dumps("input_date and car_name are required")}
+            return {
+                "statusCode": 400,
+                "body": json.dumps("input_date and car_name are required"),
+            }
 
         if not API_KEY:
             return {"statusCode": 400, "body": json.dumps("OPENAI_API_KEY is required")}
@@ -124,7 +140,7 @@ def lambda_handler(event, context):
 
         # 배치 처리
         for i in range(0, len(data), BATCH_SIZE):
-            batch = [item["text"] for item in data[i:i + BATCH_SIZE]]
+            batch = [item["text"] for item in data[i : i + BATCH_SIZE]]
             batch_results = analyze_comments_batch(batch)
 
             if isinstance(batch_results, dict) and "statusCode" in batch_results:
@@ -148,15 +164,19 @@ def lambda_handler(event, context):
                 Bucket=BUCKET_NAME,
                 Key=WRITE_OBJECT_KEY,
                 Body=json_output,
-                ContentType="application/json"
+                ContentType="application/json",
             )
         except Exception as e:
-            return {"statusCode": 500, "body": json.dumps(str(e))}  # S3 업로드 오류 반환
+            return {
+                "statusCode": 500,
+                "body": json.dumps(str(e)),
+            }  # S3 업로드 오류 반환
 
         return {"statusCode": 200, "body": json.dumps("Processing complete!")}
 
     except Exception as e:
         return {"statusCode": 500, "body": json.dumps(str(e))}  # Lambda 내부 오류 반환
+
 
 ##sample input.json
 # {
