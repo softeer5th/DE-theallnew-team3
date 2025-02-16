@@ -16,6 +16,7 @@ COPY ./.env .env
 
 RUN airflow db init
 
+# AWS Connection
 RUN airflow connections delete aws_default
 RUN export $(grep -v '^#' .env | xargs) && \
     airflow connections add aws_default \
@@ -23,8 +24,28 @@ RUN export $(grep -v '^#' .env | xargs) && \
     --conn-login $AWS_ACCESS_KEY_ID \
     --conn-password $AWS_SECRET_ACCESS_KEY \
     --conn-extra '{"region_name": "ap-northeast-2"}'
+
+# AWS Redshift Connection
+RUN airflow connections delete redshift_default
+RUN export $(grep -v '^#' .env | xargs) && \
+    airflow connections add redshift_default \
+    --conn-type 'redshift' \
+    --conn-host $REDSHIFT_HOST \
+    --conn-port $REDSHIFT_PORT \
+    --conn-schema $REDSHIFT_DATABASE \
+    --conn-login $REDSHIFT_USER \
+    --conn-password $REDSHIFT_PASSWORD \
+    --conn-extra '{ \
+                    "is_serverless": true, \
+                    "serverless_work_group": $REDSHIFT_SERVERLESS_WG, \
+                    "role_arn": $REDSHIFT_IAM_ROLE \
+                    }'
+
+# Airflow user
 RUN export $(grep -v '^#' .env | xargs) && \
     airflow users create -u $USER -p $PASSWORD -f $FIRST_NAME -l $LAST_NAME -r Admin -e $EMAIL
+
+# Slack
 RUN export $(grep -v '^#' .env | xargs) && \
     airflow connections add slack_default \
     --conn-type slackwebhook \
