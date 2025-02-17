@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 SPARK_STEPS = [
     {
-        "Name": "Spark Step Test1",
+        "Name": "Process Text",
         "ActionOnFailure": "TERMINATE_CLUSTER",
         "HadoopJarStep": {
             "Jar": "command-runner.jar",
@@ -19,11 +19,13 @@ SPARK_STEPS = [
                 "spark-submit",
                 "--deploy-mode",
                 "cluster",
-                "s3://the-all-new-bucket/py/job2.py",
-                "--data_source",
-                "s3://the-all-new-bucket/yellow_tripdata_2024-01.parquet",
-                "--output_uri",
-                "s3://the-all-new-bucket/out",
+                "s3://the-all-new-bucket/py/process_text.py",
+                "--year",
+                "2025",
+                "--month",
+                "01",
+                "--car_name",
+                "그랜저",
             ],
         },
     }
@@ -83,29 +85,29 @@ with DAG(
     # TODO: Schedule 기준으로 변경
     INPUT_DATE = "2025-01"
     year, month = INPUT_DATE.split("-")[:2]
-    # create_emr_cluster = EmrCreateJobFlowOperator(
-    #     task_id="emr_create_job_flow",
-    #     job_flow_overrides=JOB_FLOW_OVERRIDES,
-    # )
-    # add_steps = EmrAddStepsOperator(
-    #     task_id="emr_add_steps",
-    #     job_flow_id=create_emr_cluster.output,
-    #     steps=SPARK_STEPS,
-    # )
 
-    # add_steps.wait_for_completion = True
+    create_emr_cluster = EmrCreateJobFlowOperator(
+        task_id="emr_create_job_flow",
+        job_flow_overrides=JOB_FLOW_OVERRIDES,
+    )
+    add_steps = EmrAddStepsOperator(
+        task_id="emr_add_steps",
+        job_flow_id=create_emr_cluster.output,
+        steps=SPARK_STEPS,
+    )
 
-    # wait_for_steps = EmrStepSensor(
-    #     task_id="wait_for_steps",
-    #     job_flow_id=create_emr_cluster.output,
-    #     step_id=get_step_id(add_steps.output),
-    # )
+    add_steps.wait_for_completion = True
 
-    # create_emr_cluster >> add_steps >> wait_for_steps
-
+    wait_for_steps = EmrStepSensor(
+        task_id="wait_for_steps",
+        job_flow_id=create_emr_cluster.output,
+        step_id=get_step_id(add_steps.output),
+    )
     target_files = S3ListOperator(
         task_id="get_target_file_list",
         bucket="the-all-new-bucket",
         prefix=f"{CAR_NAME}/{year}/{month}/sentence_data/",
         delimiter="/",
     )
+
+    create_emr_cluster >> add_steps >> wait_for_steps >> target_files
