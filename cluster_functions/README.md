@@ -48,14 +48,17 @@ spark-submit nlp_test_split.py s3a://the-all-new-bucket/싼타페/2025/01 s3a://
 the-all-new-bucket/싼타페/2025/01/raw_output/data_part_1.parquet (1부터 5까지 저장됨)  
 
 
+```bash  
+spark-submit text_processing.py s3a://the-all-new-bucket/그랜저/2024/12 s3a://the-all-new-bucket/그랜저/2024/12 
+```  
+실행 후: comment_data, post_data, sentence_data 폴더가 생성됩니다. 
+
+
 ## 스크립트로 실행하기
 - 실행 코드는 기본 버킷(the-all-new-bucket)에 있습니다.  
 
 1. aws 콘솔에서 emr 실행하기  
 "cluster-kga" or "EMR Test" clone하기   
-
-Service role for Amazon EMR: AmazonEMR-ServiceRole-20250207T173004   
-EC2 instance profile: AmazonEMR-InstanceProfile-20250207T172947  
 
 2. submit-job.sh 안에 생성한 emr 클러스터 ID로 변경하기  
 
@@ -63,7 +66,7 @@ EC2 instance profile: AmazonEMR-InstanceProfile-20250207T172947
 ```bash  
 ./submit-job.sh '싼타페' '2025-01'  
 ```
--> s3://the-all-new-bucket/싼타페/2025/01/raw_output 에 parquet 형식으로 저장됨.  
+-> s3://the-all-new-bucket/싼타페/2025/01/에 comment_data, post_data, sentence_data 폴더 3개가 생성됩니다. 
 
 클러스터 상태 확인  
 ```bash  
@@ -74,3 +77,4 @@ step 상태 확인
 ```bash  
 aws emr describe-step --cluster-id "j-000000" --step-id "s-0000000"  
 ```   
+

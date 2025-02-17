@@ -165,24 +165,10 @@ def transform_text(input_s3_path, output_s3_path):
             print("데이터 정제 실패. 종료합니다.")
             return
 
-        # 데이터를 5개의 데이터프레임으로 나누기
-        num_partitions = 5
-        dfs = df.randomSplit([1.0] * num_partitions, seed=42)
+        df = df.repartition(5)
+        df.write.mode("overwrite").parquet(output_s3_path)
 
-        # 각 파티션을 개별적으로 저장
-        for i, df_part in enumerate(dfs):
-            file_path = os.path.join(output_s3_path, f"nlp_data_{i+1}")
-            df_part.write.mode("overwrite").parquet(file_path)
-            print(f"Saved: {file_path}")
-
-        # # 각 파티션을 개별적으로 저장 (Parquet 파일 이름 직접 지정)
-        # for i, df_part in enumerate(dfs):
-        #     file_path = os.path.join(output_s3_path, f"data_{i+1}.parquet")
-            
-        #     # Pandas 변환 후 개별 파일 저장, to_parquet 쓰려면 pyarrow fastparquet 필요
-        #     df_part.toPandas().to_parquet(file_path, index=False)
-            
-        #     print(f"Saved: {file_path}")
+        print(f"Saved: {output_s3_path}")
 
     except Exception as e:
         print(f"전체 프로세스 중 오류 발생: {e}")

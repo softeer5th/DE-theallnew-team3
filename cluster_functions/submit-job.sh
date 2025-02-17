@@ -21,12 +21,12 @@ MONTH=$(echo $DATE | cut -d'-' -f2)
 ENCODED_KEYWORD=$(printf "%s" "$KEYWORD")
 
 # 설정
-S3_SCRIPT_PATH="s3://the-all-new-bucket/py/nlp_on_emr.py"
+S3_SCRIPT_PATH="s3://the-all-new-bucket/py/text_processing.py"
 INPUT_S3_PATH="s3://the-all-new-bucket/${ENCODED_KEYWORD}/${YEAR}/${MONTH}"
-OUTPUT_S3_PATH="s3://the-all-new-bucket/${ENCODED_KEYWORD}/${YEAR}/${MONTH}/raw_output"
+OUTPUT_S3_PATH="s3://the-all-new-bucket/${ENCODED_KEYWORD}/${YEAR}/${MONTH}"
 
 # 실행할 EMR 클러스터 ID
-CLUSTER_ID="j-1J2185NUVDCT7"
+CLUSTER_ID="j-1VDSYIBP4Y7QS"
 
 # Spark 작업 제출
 aws emr add-steps --cluster-id $CLUSTER_ID --steps Type=Spark,Name="TextTransformJob",ActionOnFailure=CONTINUE,\
