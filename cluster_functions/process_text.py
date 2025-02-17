@@ -185,79 +185,55 @@ def to_cleaned(df):
 
 
 def process_text(year, month, car_name):
-    try:
-        spark = (
-            SparkSession.builder.appName("Process Text")
-            .config("spark.driver.host", "127.0.0.1")
-            .getOrCreate()
-        )
-    except Exception as e:
-        raise "Spark Session Failed"
+    spark = SparkSession.builder.appName("Process Text").getOrCreate()
 
-    try:
-        # s3에서 json 파일 읽어오기
-        df_youtube = spark.read.json(
-            f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/youtube_raw_*.json",
-            multiLine=True,
-        )
-        df_bobae = spark.read.json(
-            f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/bobae_raw.json",
-            multiLine=True,
-        )
-        df_clien = spark.read.json(
-            f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/clien_raw.json",
-            multiLine=True,
-        )
+    # s3에서 json 파일 읽어오기
+    df_youtube = spark.read.json(
+        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/youtube_raw_*.json",
+        multiLine=True,
+    )
+    df_bobae = spark.read.json(
+        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/bobae_raw.json",
+        multiLine=True,
+    )
+    df_clien = spark.read.json(
+        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/clien_raw.json",
+        multiLine=True,
+    )
 
-        # json 데이터를 post, comment로 분리하기
-        # youtube_post, youtube_comment = to_flattend(
-        #     spark, df_youtube, "youtube", car_name
-        # )
-        # bobae_post, bobae_comment = to_flattend(spark, df_bobae, "bobae", car_name)
-        # clien_post, clien_comment = to_flattend(spark, df_clien, "clien", car_name)
+    # json 데이터를 post, comment로 분리하기
+    youtube_post, youtube_comment = to_flattend(spark, df_youtube, "youtube", car_name)
+    bobae_post, bobae_comment = to_flattend(spark, df_bobae, "bobae", car_name)
+    clien_post, clien_comment = to_flattend(spark, df_clien, "clien", car_name)
 
-        # # data 합치기
-        # df_post = youtube_post.union(bobae_post).union(clien_post)
-        # df_comment = youtube_comment.union(bobae_comment).union(clien_comment)
+    # data 합치기
+    df_post = youtube_post.union(bobae_post).union(clien_post)
+    df_comment = youtube_comment.union(bobae_comment).union(clien_comment)
 
-        # # parquet 저장
-        # df_post.write.mode("overwrite").parquet(
-        #     f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/post_data"
-        # )
-        # df_comment.write.mode("overwrite").parquet(
-        #     f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/comment_data"
-        # )
+    # parquet 저장
+    df_post.write.mode("overwrite").parquet(
+        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/post_data"
+    )
+    df_comment.write.mode("overwrite").parquet(
+        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/comment_data"
+    )
 
-        # # post data를 sentence data로 변환
-        # df_post = make_sentence(df_post, "post")
-        # # comment data를 sentence data로 변환
-        # df_comment = make_sentence(df_comment, "comment")
+    # post data를 sentence data로 변환
+    df_post = make_sentence(df_post, "post")
+    # comment data를 sentence data로 변환
+    df_comment = make_sentence(df_comment, "comment")
 
-        # # 한 sentence data로 합치기
-        # df = df_post.union(df_comment)
-        # # sentence data를 rule based 로 정제(특수 문자 제거 등)
-        # df = to_cleaned(df)
+    # 한 sentence data로 합치기
+    df = df_post.union(df_comment)
+    # sentence data를 rule based 로 정제(특수 문자 제거 등)
+    df = to_cleaned(df)
 
-        # df = df.repartition(10)
-        # df.write.mode("overwrite").parquet(
-        #     f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/sentence_data"
-        # )
-        df_youtube.write.mode("overwrite").parquet(
-            f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/test_youtube"
-        )
-        df_bobae.write.mode("overwrite").parquet(
-            f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/test_bobae"
-        )
-        df_clien.write.mode("overwrite").parquet(
-            f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/test_clien"
-        )
+    df = df.repartition(10)
+    df.write.mode("overwrite").parquet(
+        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/sentence_data"
+    )
 
-    except Exception as e:
-        print(f"전체 프로세스 중 오류 발생: {e}")
-        raise e
-
-    finally:
-        spark.stop()
+    spark.stop()
 
 
 if __name__ == "__main__":
@@ -269,4 +245,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     print(f"Processing {args.car_name} data for {args.year}-{args.month}")
-    process_text(args.year, args.month, args.car_name)
+    process_text(args.year, args.month, "그랜저")
