@@ -49,6 +49,11 @@ def lambda_handler(event, context):
                 if profile is None:
                     # 삭제된 게시글
                     continue
+
+                data["car_name"] = car_name
+                data["source"] = "bobae"
+                data["id"] = link
+
                 title = profile.find("dt").attrs["title"]
                 data["title"] = title
 
@@ -69,8 +74,25 @@ def lambda_handler(event, context):
                 countGroup = countGroup.text
                 countGroup = countGroup.split("|")
 
-                data["view_count"] = countGroup[0].strip().split(" ")[1]
-                data["like_count"] = countGroup[1].strip().split(" ")[2]
+                view_count = 0
+                try:
+                    view_count = int(
+                        countGroup[0].strip().split(" ")[1].replace(",", "")
+                    )
+                except:
+                    view_count = 0
+                data["view_count"] = view_count
+
+                like_count = 0
+                try:
+                    like_count = int(
+                        countGroup[1].strip().split(" ")[2].replace(",", "")
+                    )
+                except:
+                    like_count = 0
+                data["like_count"] = like_count
+
+                data["dislike_count"] = 0
 
                 dt = countGroup[-1].strip()
                 dt = dt.replace("\xa0", " ")
@@ -102,13 +124,29 @@ def lambda_handler(event, context):
 
                         updown = c.find("div", "updownbox")
                         updown = updown.find_all("a")
-                        comment["comment_likeCount"] = updown[0].text.split(" ")[1]
-                        comment["comment_dislikeCount"] = updown[1].text.split(" ")[1]
+
+                        like_count = 0
+                        try:
+                            like_count = int(
+                                updown[0].text.split(" ")[1].replace(",", "")
+                            )
+                        except:
+                            like_count = 0
+                        comment["comment_like_count"] = like_count
+
+                        dislike_count = 0
+                        try:
+                            dislike_count = int(
+                                updown[1].text.split(" ")[1].replace(",", "")
+                            )
+                        except:
+                            dislike_count = 0
+                        comment["comment_dislike_count"] = dislike_count
 
                         data["comments"].append(comment)
                     except:
                         pass
-                data["comment_count"] = str(len(data["comments"]))
+                data["comment_count"] = len(data["comments"])
 
                 json_data.append(data)
 

@@ -78,15 +78,19 @@ def lambda_handler(event, context):
 
             # 영상 정보 저장 (변경된 JSON 스키마 적용)
             video_info = {
-                "title": snippet.get("title", "제목 없음"),
-                "nickname": snippet.get("channelTitle", "알 수 없음"),
-                "article": snippet.get("description", "설명 없음"),
-                "like_count": statistics.get("likeCount", "0"),
-                "view_count": statistics.get("viewCount", "0"),
+                "id": video_id,
+                "car_name": car_name,
+                "source": "youtube",
+                "title": snippet.get("title", ""),
+                "nickname": snippet.get("channelTitle", ""),
+                "article": snippet.get("description", ""),
+                "like_count": int(statistics.get("likeCount", 0)),
+                "view_count": int(statistics.get("viewCount", 0)),
+                "dislike_count": 0,
                 "date": convert_to_timestamp(
                     snippet.get("publishedAt", "")
                 ),  # 타임스탬프로 변환
-                "comment_count": statistics.get("commentCount", "0"),
+                "comment_count": int(statistics.get("commentCount", 0)),
                 "comments": [],  # 댓글 리스트 초기화
             }
 
@@ -102,8 +106,8 @@ def lambda_handler(event, context):
                         {
                             "comment_nickname": comment.get("author", ""),
                             "comment_content": comment.get("text", ""),
-                            "comment_like_count": comment.get("votes", "0"),
-                            "comment_dislike_count": "0",  # YouTube API에서 싫어요 수 제공 안 함
+                            "comment_like_count": int(comment.get("votes", "0")),
+                            "comment_dislike_count": 0,  # YouTube API에서 싫어요 수 제공 안 함
                             "comment_date": convert_to_timestamp(
                                 datetime.utcfromtimestamp(
                                     comment["time_parsed"]
