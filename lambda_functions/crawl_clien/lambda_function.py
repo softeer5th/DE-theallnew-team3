@@ -98,10 +98,11 @@ def send_requests(urls):
     return posts
 
 
-def unify_clien_post_content(posts):
+def unify_clien_post_content(posts, car_name):
 
     unified_posts = []
     for post in posts:
+        url = post["url"]
         title = post["post_title"]
         nickname = post["post_nickname"]
         article = post["post_article"]
@@ -135,10 +136,14 @@ def unify_clien_post_content(posts):
             unified_comments.append(unified_comment)
 
         unified_post = {
+            "car_name": car_name,
+            "id": url,
+            "source": "clien",
             "title": title,
             "nickname": nickname,
             "article": article,
             "like_count": like_count,
+            "dislike_count": 0,
             "view_count": view_count,
             "date": date,
             "comment_count": comment_count,
@@ -188,7 +193,7 @@ def lambda_handler(event, context):
             urls = f.readlines()
 
         posts = send_requests(urls)
-        unified_posts = unify_clien_post_content(posts)
+        unified_posts = unify_clien_post_content(posts, car_name)
 
         with open(
             f"/tmp/clien_{input_date}_{car_name}.json", "w", encoding="utf-8"
