@@ -1,32 +1,13 @@
-import boto3
 import openai
 import os
 import json
-from io import StringIO
-
-# S3 클라이언트 생성
-s3_client = boto3.client("s3")
+import awswrangler as wr
+import pandas as pd
 
 API_KEY = os.getenv("OPENAI_API_KEY")
 
 # OpenAI API 키 설정
 openai.api_key = API_KEY
-
-
-def download_json_from_s3(bucket_name, json_key):
-    """S3에서 JSON 파일 다운로드 후 데이터로 변환"""
-    try:
-        response = s3_client.get_object(Bucket=bucket_name, Key=json_key)
-        json_content = response["Body"].read().decode("utf-8")
-
-        data = []
-        for json_object in json_content.splitlines():
-            if json_object.strip():
-                data.append(json.loads(json_object))
-
-        return data
-    except Exception as e:
-        return {"statusCode": 500, "body": json.dumps(str(e))}  # 오류 반환
 
 
 def analyze_comments_batch(comments):
@@ -88,12 +69,9 @@ def analyze_comments_batch(comments):
                 results.append(
                     {
                         "text": comments[i],
-                        "sentiment": sentiment,
-                        "topic": topic,
-                        "subtopic": subtopic,
-                        "date": None,
-                        "like_count": None,
-                        "source": "youtube",
+                        "sentiment_score": sentiment,
+                        "category": topic,
+                        "keyword": subtopic,
                     }
                 )
             except Exception as e:
@@ -112,7 +90,7 @@ def lambda_handler(event, context):
 
         input_date = event.get("input_date")
         car_name = event.get("car_name")
-        input_file_key = event.get("input_file_key")
+        object_key = event.get("object_key")
 
         if not input_date or not car_name:
             return {
@@ -126,13 +104,14 @@ def lambda_handler(event, context):
         year, month = input_date.split("-")[:2]
 
         BUCKET_NAME = "the-all-new-bucket"
-        READ_OBJECT_KEY = input_file_key
-        WRITE_OBJECT_KEY = f"{car_name}/{year}/{month}/classified_data.json"
+        READ_OBJECT_KEY = f"{car_name}/{year}/{month}/sentence_data/{object_key}"
+        WRITE_OBJECT_KEY = f"{car_name}/{year}/{month}/classified/{object_key}"
 
-        # S3에서 데이터 다운로드
-        data = download_json_from_s3(BUCKET_NAME, READ_OBJECT_KEY)
-        if isinstance(data, dict) and "statusCode" in data:
-            return data  # 오류 발생 시 반환
+        df = wr.s3.read_parquet(
+            path=f"s3://{BUCKET_NAME}/{READ_OBJECT_KEY}",
+            columns=["sentence_id", "text"],
+        )
+        data = df.to_dict(orient="records")
 
         if not data:
             return {"statusCode": 500, "body": json.dumps("S3 데이터 다운로드 실패")}
@@ -143,44 +122,17 @@ def lambda_handler(event, context):
         for i in range(0, len(data), BATCH_SIZE):
             batch = [item["text"] for item in data[i : i + BATCH_SIZE]]
             batch_results = analyze_comments_batch(batch)
+            print(f"batch {i} complete")
 
             if isinstance(batch_results, dict) and "statusCode" in batch_results:
                 return batch_results  # 오류 발생 시 반환
 
-            for j, result in enumerate(batch_results):
-                result["date"] = data[i + j]["date"]
-                result["like_count"] = data[i + j]["like_count"]
-                result["source"] = data[i + j]["source"]
-
             results.extend(batch_results)
 
-        # 결과를 JSON 형식으로 변환
-        json_output = ""
-        for item in results:
-            json_output += f'{{ "text": "{item["text"]}", "date": {item["date"]}, "like_count": "{item["like_count"]}", "source": "{item["source"]}", "sentiment": {item["sentiment"]}, "topic": "{item["topic"]}", "subtopic": "{item["subtopic"]}" }}\n'
-
-        # 결과를 S3에 업로드
-        try:
-            s3_client.put_object(
-                Bucket=BUCKET_NAME,
-                Key=WRITE_OBJECT_KEY,
-                Body=json_output,
-                ContentType="application/json",
-            )
-        except Exception as e:
-            return {
-                "statusCode": 500,
-                "body": json.dumps(str(e)),
-            }  # S3 업로드 오류 반환
+        results_df = pd.DataFrame(results)
+        wr.s3.to_parquet(df=results_df, path=f"s3://{BUCKET_NAME}/{WRITE_OBJECT_KEY}")
 
         return {"statusCode": 200, "body": json.dumps("Processing complete!")}
 
     except Exception as e:
         return {"statusCode": 500, "body": json.dumps(str(e))}  # Lambda 내부 오류 반환
-
-
-##sample input.json
-# {
-#     "input_date": "2025-01",
-#     "car_name": "싼타페"
-# }
