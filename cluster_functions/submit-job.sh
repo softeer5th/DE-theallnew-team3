@@ -17,16 +17,16 @@ DATE=$2
 YEAR=$(echo $DATE | cut -d'-' -f1)
 MONTH=$(echo $DATE | cut -d'-' -f2)
 
-# UTF-8 인코딩 강제 적용
-KEYWORD=$(echo $KEYWORD | iconv -f utf-8 -t utf-8)
+# UTF-8 인코딩 문제 해결 (iconv 제거)
+ENCODED_KEYWORD=$(printf "%s" "$KEYWORD")
 
 # 설정
-S3_SCRIPT_PATH="s3a://the-all-new-bucket/nlp_emr.py"
-INPUT_S3_PATH="s3a://the-all-new-bucket/${KEYWORD}/${YEAR}/${MONTH}"
-OUTPUT_S3_PATH="s3a://the-all-new-bucket/${KEYWORD}/${YEAR}/${MONTH}/raw_output"
+S3_SCRIPT_PATH="s3://the-all-new-bucket/py/text_processing.py"
+INPUT_S3_PATH="s3://the-all-new-bucket/${ENCODED_KEYWORD}/${YEAR}/${MONTH}"
+OUTPUT_S3_PATH="s3://the-all-new-bucket/${ENCODED_KEYWORD}/${YEAR}/${MONTH}"
 
 # 실행할 EMR 클러스터 ID
-CLUSTER_ID="j-T5PKZ70I6R2I"
+CLUSTER_ID="j-1VDSYIBP4Y7QS"
 
 # Spark 작업 제출
 aws emr add-steps --cluster-id $CLUSTER_ID --steps Type=Spark,Name="TextTransformJob",ActionOnFailure=CONTINUE,\
@@ -42,4 +42,4 @@ $INPUT_S3_PATH,\
 $OUTPUT_S3_PATH\
 ]
 
-echo "Spark job submitted to EMR cluster $CLUSTER_ID with parameters: KEYWORD=$KEYWORD, YEAR=$YEAR, MONTH=$MONTH"
+echo "Spark job submitted to EMR cluster $CLUSTER_ID with parameters: KEYWORD=$ENCODED_KEYWORD, YEAR=$YEAR, MONTH=$MONTH"

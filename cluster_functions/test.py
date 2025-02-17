@@ -16,14 +16,13 @@ def getFileFromS3(spark: SparkSession, s3_path: str):
     df = spark.read.parquet(s3_path)
     return df
 
-
 def main(s3_path):
     # SparkSession 생성
     spark = getSparkSession()
     if spark is None:
-        raise Exception("🚨 SparkSession 생성 실패! 환경설정을 확인하세요.")
+        raise Exception("SparkSession 생성 실패! 환경설정을 확인하세요.")
 
-    print("🔥 SparkSession successfully created!")
+    print("SparkSession successfully created!")
 
     s3_prefix = "*.parquet"
 
