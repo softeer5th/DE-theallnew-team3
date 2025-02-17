@@ -1,4 +1,8 @@
 import argparse
+import subprocess
+import boto3
+import os
+import shutil
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, explode, lit, split
 from pyspark.sql.functions import lower, regexp_replace, trim, length
@@ -19,8 +23,7 @@ def get_spark_session():
     except Exception as e:
         print(f"SparkSession 생성 실패: {e}")
         return None
-
-
+    
 def to_flattend(df, source_type):
     try:
         title_df = df.select(
@@ -129,6 +132,88 @@ def to_cleaned(df):
         return None
 
 
+def save_parquet_files_v1(df, output_s3_path, num_files=5):
+    """
+    데이터를 num_files 개수만큼 나누어 S3에 저장하는 함수
+    """
+    try:
+        df_list = df.randomSplit([1.0 / num_files] * num_files)
+
+        s3_client = boto3.client("s3")
+        
+        # s3a:// 제거 후 버킷과 경로 분리
+        bucket_name = output_s3_path.replace("s3a://", "").split("/")[0]
+        prefix = "/".join(output_s3_path.replace("s3a://", "").split("/")[1:])
+
+        print("데이터 저장 중...")
+
+        for i, df_part in enumerate(df_list):
+            temp_dir = f"/tmp/parquet_part_{i+1}"  # 임시 디렉토리 생성
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)  # 기존 디렉터리 삭제
+            os.makedirs(temp_dir)
+
+            # 단일 파일로 저장 (coalesce(1) 사용)
+            df_part.coalesce(1).write.mode("overwrite").parquet(temp_dir)
+
+            # Spark가 만든 실제 파일 찾기
+            file_name = [f for f in os.listdir(temp_dir) if f.startswith("part-")][0]
+            local_file_path = os.path.join(temp_dir, file_name)
+
+            # 올바른 S3 경로로 파일 업로드
+            s3_file_path = f"{prefix}/data_part_{i+1}.parquet"
+            s3_client.upload_file(local_file_path, bucket_name, s3_file_path)
+            print(f"저장 완료: {s3_file_path}")
+
+            # 임시 디렉토리 삭제
+            shutil.rmtree(temp_dir)
+
+    except Exception as e:
+        print(f"Parquet 저장 중 오류 발생: {e}")
+
+
+def save_parquet_files_v2(df, output_s3_path, num_files=5):
+    try:
+        # Split data into smaller partitions
+        df_list = df.randomSplit([1.0 / num_files] * num_files)
+        print("데이터 저장 중...")
+
+        # S3 paths split
+        bucket_name = output_s3_path.replace("s3a://", "").split("/")[0]
+        prefix = "/".join(output_s3_path.replace("s3a://", "").split("/")[1:])
+
+        # Iterate over the partitions and save non-empty partitions
+        for i, df_part in enumerate(df_list):
+            if df_part.count() == 0:  # Skip empty partitions
+                print(f"경고: 데이터 파티션 {i+1}이 비어 있습니다. 저장을 건너뜁니다.")
+                continue
+
+            temp_dir = f"/tmp/parquet_part_{i+1}"
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+            os.makedirs(temp_dir)
+
+            # Save the partition as a Parquet file
+            df_part.coalesce(1).write.mode("overwrite").parquet(temp_dir)
+
+            # Locate the generated file
+            file_name = [f for f in os.listdir(temp_dir) if f.startswith("part-")][0]
+            local_file_path = os.path.join(temp_dir, file_name)
+
+            # Set the target S3 path
+            s3_file_path = f"s3://{bucket_name}/{prefix}/data_part_{i+1}.parquet"
+
+            print(f"Uploading local file to S3: {local_file_path} -> {s3_file_path}")
+            subprocess.run(["aws", "s3", "cp", local_file_path, s3_file_path])
+
+            print(f"Saved: {s3_file_path}")
+
+            shutil.rmtree(temp_dir)  # Clean up temp directory
+
+    except Exception as e:
+        print(f"Error while saving Parquet: {e}")
+
+
 def transform_text(input_s3_path, output_s3_path):
     spark = get_spark_session()
     if spark is None:
@@ -161,9 +246,8 @@ def transform_text(input_s3_path, output_s3_path):
             print("데이터 정제 실패. 종료합니다.")
             return
 
-        print("💾 데이터 저장 중...")
-        df.write.parquet(output_s3_path, mode="overwrite")
-        print(f"변환 완료! 결과 저장: {output_s3_path}")
+        # 데이터 5개로 나누어 저장
+        save_parquet_files_v2(df, output_s3_path, num_files=5)
 
     except Exception as e:
         print(f"전체 프로세스 중 오류 발생: {e}")
