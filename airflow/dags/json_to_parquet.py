@@ -55,7 +55,7 @@ JOB_FLOW_OVERRIDES = {
         "KeepJobFlowAliveWhenNoSteps": False,
         "TerminationProtected": False,
     },
-    "LogUri": "s3://the-all-new-logs/emr",
+    "LogUri": "s3://the-all-new-logs/elasticmapreduce",
     "Tags": [{"Key": "for-use-with-amazon-emr-managed-policies", "Value": "true"}],
     "VisibleToAllUsers": True,
     "JobFlowRole": "DE_3_EMR_Instance_Role",
