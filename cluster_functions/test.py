@@ -1,8 +1,10 @@
+from pyspark import SparkConf
 from pyspark.sql import SparkSession
 import argparse
 
 def getSparkSession() -> SparkSession : 
-    spark = SparkSession.builder \
+    conf = SparkConf().set("spark.port.maxRetries", "50")
+    spark = SparkSession.builder.config(conf=conf) \
         .appName("GetS3FiletoLocal") \
         .config("spark.jars.packages", "org.apache.hadoop:hadoop-aws:3.2.4,com.amazonaws:aws-java-sdk-bundle:1.11.901") \
         .config("spark.hadoop.fs.s3a.aws.credentials.provider", "com.amazonaws.auth.DefaultAWSCredentialsProviderChain") \

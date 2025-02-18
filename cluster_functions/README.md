@@ -1,72 +1,42 @@
-## 로컬에서 Spark 사용해서 s3 데이터 읽고 쓰기 
-- hadoop-aws-3.2.4.jar, aws-java-sdk-bundle-1.11.901.jar 파일이 $SPARK_HOME/jars에 있어야 합니다.  
+## EMR에서 텍스트 processing 코드 잘 작동하는지 확인하기
 
-
-- input: .json, output: .parquet   
+1. 텍스트 전처리 코드 s3에 업로드하기  
 ```bash  
-spark-submit nlp_test.py s3a://the-all-new-bucket/싼타페/2025/01 s3a://the-all-new-bucket/싼타페/2025/01/raw_output  
+./deploy.sh {python_file_name}
 ```  
+2. AWS EMR 생성하기  
 
-- test.py 코드로 결과를 볼 수 있습니다.  
-```bash
-spark-submit test.py s3a://the-all-new-bucket/싼타페/2025/01/raw_output    
-```  
+3. submit-job.sh 안에 생성한 emr 클러스터 ID로 변경하기    
 
-- 결과 예시  
-column: text, date(timestamp 형식), view_count, like_count, dislike_count,source(3가지), type(title/article/comment 중), weight
-
-+------------------------------------+----------+----------+----------+-------------+------+-------+------+  
-|                                text|      date|view_count|like_count|dislike_count|source|   type|weight|  
-+------------------------------------+----------+----------+----------+-------------+------+-------+------+  
-|         기다린 기간이 오래되서 ㅠㅠ|1738364286|     10890|         0|            0| clien|article|   9.3|  
-|                  5월 출고 예정인데.|1738364286|     10890|         0|            0| clien|article|   9.3|  
-|저거 넣으면 첨부터 다시 기다려야해서|1738364286|     10890|         0|            0| clien|article|   9.3|  
-|    지금부터 기다리면 10월이나 받...|1738364286|     10890|         0|            0| clien|article|   9.3|  
-|                딜러분에게 물어보니.|1738364286|     10890|         0|            0| clien|article|   9.3|  
-| 그때쯤 받으면 차량 연식이 바뀔때라.|1738364286|     10890|         0|            0| clien|article|   9.3|  
-|               차값 상승 될수도 있음|1738364286|     10890|         0|            0| clien|article|   9.3|  
-|                 개소세 할인 없어짐.|1738364286|     10890|         0|            0| clien|article|   9.3|  
-|     보니까 재수없으면 약 200정도...|1738364286|     10890|         0|            0| clien|article|   9.3|  
-|      1. 그냥 받는다. 드와 그따위...|1738364286|     10890|         0|            0| clien|article|   9.3|  
-|               2. 취소하고 옵션 수정|1738364286|     10890|         0|            0| clien|article|   9.3|  
-|    참고로 20년넘게 운전하면서 무...|1738364286|     10890|         0|            0| clien|article|   9.3|  
-| 뭔가 전자장치가 개입하는게 어색하게|1738364286|     10890|         0|            0| clien|article|   9.3|  
-|  느껴질 수도 있을 것 같습니다. ㅜㅜ|1738364286|     10890|         0|            0| clien|article|   9.3|  
-|  근대 다들 필수라고 하는 것 같아서.|1738364286|     10890|         0|            0| clien|article|   9.3|  
-|     드라이브와이즈. 사용해본적없고.|1738364286|     10890|         0|            0| clien|article|   9.3|  
-|와이프님차에는 크루저 기능이 있지만.|1738364286|     10890|         0|            0| clien|article|   9.3|  
-|   그것도 거이 안쓰는 스타일이라....|1738364286|     10890|         0|            0| clien|article|   9.3|  
-|   원래 남자는 스틱 수동 아닙니까...|1738364286|     10890|         0|            0| clien|article|   9.3|  
-|  어쩌다 세상이.온통 오토가 돼가지고|1738364286|     10890|         0|            0| clien|article|   9.3|  
-+------------------------------------+----------+----------+----------+-------------+------+-------+------+  
-
-
-## parquet 파일 나눠서 저장하기  
+4. 스크립트로 spark job submit하기  
 ```bash  
-spark-submit nlp_test_split.py s3a://the-all-new-bucket/싼타페/2025/01 s3a://the-all-new-bucket/싼타페/2025/01/raw_output  
-```  
-the-all-new-bucket/싼타페/2025/01/raw_output/data_part_1.parquet (1부터 5까지 저장됨)  
+./submit-job.sh '싼타페' '2025-01' 
+``` 
+
+5. 결과확인  
+- s3://{bucket_name}/{차종}/{년}/{월}/post_data  
 
 
-```bash  
-spark-submit text_processing.py s3a://the-all-new-bucket/그랜저/2024/12 s3a://the-all-new-bucket/그랜저/2024/12 
-```  
-실행 후: comment_data, post_data, sentence_data 폴더가 생성됩니다. 
+| post_id            |       title               |     author |    article                | timestamp|like_cnt|dislike_cnt|view_cnt|comment_cnt|car_name| source|  
++--------------------+----------------------------------+------------------------------------+----------------------------------+--------------------------------+  
+|ee21afb1-cd4e-4d6...| 너무 멋진 현대자동차 신형 그랜...|  Virtual Now| 너무 멋진 현대자동차 신형 그랜...|1736038839|     248|          0|   46216|         31|  그랜저|youtube|  
 
 
-## 스크립트로 실행하기
-- 실행 코드는 기본 버킷(the-all-new-bucket)에 있습니다.  
+- s3://{bucket_name}/{차종}/{년}/{월}/comment_data  
++--------------------+----------------+----------------------------------+----------+--------+-----------+--------------------+  
+|          comment_id|          author|                           content| timestamp|like_cnt|dislike_cnt|             post_id|  
++--------------------+----------------+----------------------------------+----------+--------+-----------+--------------------+  
+|2e8a56ad-5479-4fe...|       @영원-o6i|               앞으론 사륜 사세요ᆢ|1739262966|       1|          0|7092fdf6-bcdd-495...|  
+|f392fb81-f3b9-41f...|    @radiotracer|  옆에 제설함이 떡하니 있는데. ...|1739435766|       1|          0|7092fdf6-bcdd-495...|  
 
-1. aws 콘솔에서 emr 실행하기  
-"cluster-kga" or "EMR Test" clone하기   
 
-2. submit-job.sh 안에 생성한 emr 클러스터 ID로 변경하기  
+- s3://{bucket_name}/{차종}/{년}/{월}/sentence_data  
++--------------------+----+----------------------------------+--------------------+----------+  
+|         sentence_id|type|                              text|             post_id|comment_id|  
++--------------------+----+----------------------------------+--------------------+----------+  
+|0884a9ec-76be-4b8...|post|      그랜저 vs 제네시스 g80 주...|cc10c0e8-6264-463...|      NULL|  
+|00e13739-d64f-45a...|post|    80년대에 그랜저 타면 '진짜 ...|215b197d-be59-4ec...|      NULL|  
 
-3. 스크립트 코드 실행
-```bash  
-./submit-job.sh '싼타페' '2025-01'  
-```
--> s3://the-all-new-bucket/싼타페/2025/01/에 comment_data, post_data, sentence_data 폴더 3개가 생성됩니다. 
 
 클러스터 상태 확인  
 ```bash  
@@ -78,3 +48,11 @@ step 상태 확인
 aws emr describe-step --cluster-id "j-000000" --step-id "s-0000000"  
 ```   
 
+
+## 로컬에서 Spark 사용해서 s3 데이터 읽고 쓰기 
+- hadoop-aws-3.2.4.jar, aws-java-sdk-bundle-1.11.901.jar 파일이 $SPARK_HOME/jars에 있어야 합니다.  
+
+- test.py 코드로 결과를 볼 수 있습니다.  
+```bash
+spark-submit test.py s3a://the-all-new-bucket/싼타페/2025/01/raw_output    
+```  

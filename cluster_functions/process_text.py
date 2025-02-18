@@ -7,114 +7,63 @@ from pyspark.sql.types import StringType
 from pyspark.sql import functions as F
 import uuid
 
+BUCKET_NAME = "the-all-new-bucket"
 
 # UUID 생성 UDF 정의
 def get_uuid():
     return str(uuid.uuid4())
 
-
 get_uuid_udf = udf(get_uuid, StringType())  # Spark UDF로 변환
-
-BUCKET_NAME = "the-all-new-bucket"
-
 
 def to_flattend(spark, df, source, car_name):
 
-    try:
-        if df is None or df.count() == 0:
-            print(f"[WARNING] {source} 데이터가 비어 있어 변환을 건너뜁니다.")
-            return None, None
-
-        # 여러 게시글 데이터 처리
-        post_data = []
-        comment_data = []
-
-        # DataFrame에서 데이터를 추출 (df는 Spark DataFrame)
-        posts = df.collect()  # .collect()로 Spark DataFrame에서 데이터를 가져온다.
-
-        for post in posts:
-            post_id = str(uuid.uuid4())  # 게시글별 고유 ID 생성
-
-            # 게시글 데이터 저장
-            post_data.append(
-                (
-                    post_id,
-                    car_name,
-                    source,
-                    post["title"],
-                    post["nickname"],
-                    post["article"],
-                    post["date"],
-                    post["view_count"],
-                    post["like_count"],
-                    0,
-                    post["comment_count"],
-                )
-            )  # 0은 dislike_cnt입니다.
-
-            # 댓글 데이터 저장 (각 댓글이 해당 post_id를 참조)
-            if post["comment_count"] > 0:  # 'comments'가 있을 경우에만 처리
-                for comment in post["comments"]:
-                    comment_id = str(uuid.uuid4())  # 댓글별 고유 ID 생성
-                    comment_data.append(
-                        (
-                            comment_id,
-                            post_id,
-                            comment["comment_nickname"],
-                            comment["comment_content"],
-                            comment["comment_date"],
-                            comment["comment_like_count"],
-                            comment["comment_dislike_count"],
-                        )
-                    )
-
-        # 컬럼 정의
-        post_columns = [
-            "post_id",
-            "car_name",
-            "source",
-            "title",
-            "author",
-            "article",
-            "timestamp",
-            "view_cnt",
-            "like_cnt",
-            "dislike_cnt",
-            "comment_count",
-        ]
-        comment_columns = [
-            "comment_id",
-            "post_id",
-            "author",
-            "content",
-            "timestamp",
-            "like_cnt",
-            "dislike_cnt",
-        ]
-
-        # Spark DataFrame 생성 (Row 사용 가능)
-        if post_data:
-            new_post_df = spark.createDataFrame(post_data, post_columns)
-        else:
-            new_post_df = spark.createDataFrame([], post_columns)  # 빈 DataFrame 반환
-
-        if comment_data:
-            new_comments_df = spark.createDataFrame(comment_data, comment_columns)
-        else:
-            new_comments_df = spark.createDataFrame(
-                [], comment_columns
-            )  # 빈 DataFrame 반환
-
-        return new_post_df, new_comments_df
-    except Exception as e:
-        print(f"[ERROR] {source} 데이터 변환 중 오류 발생: {e}")
-        print(traceback.format_exc())
+    if df is None:
+        print(f"[WARNING] {source} 데이터가 비어 있어 변환을 건너뜁니다.")
         return None, None
 
+    # `uuid()`로 `post_id` 생성
+    df_with_post_id = df.withColumn("post_id", F.expr("uuid()"))
+
+
+    # explode() 적용 전에 comment_count > 0 필터링
+    df_filtered = df_with_post_id.filter(F.col("comment_count") > 0)
+
+    # explode() 적용
+    df_comments = df_filtered.withColumn("comment", F.explode("comments"))
+
+    # 필요한 컬럼만 선택하여 메모리 사용량 절감
+    df_comments = df_comments.select(
+        F.expr("uuid()").alias("comment_id"),  # UDF 없이 Spark 내장 함수 사용
+        F.col("comment.comment_nickname").alias("author"), 
+        F.col("comment.comment_content").alias("content"),    
+        F.col("comment.comment_date").alias("timestamp"),
+        F.col("comment.comment_like_count").alias("like_cnt"),       
+        F.col("comment.comment_dislike_count").alias("dislike_cnt"), 
+        "post_id"
+    )
+
+    df_posts= df_with_post_id.drop("comments")
+    df_posts=df_posts.withColumn("car_name",F.lit(car_name))
+    df_posts=df_posts.withColumn("source",F.lit(source))
+
+    df_posts = df_posts.select(
+        "post_id",
+        "title",
+        F.col("nickname").alias("author"),
+        "article",
+        F.col("date").alias("timestamp"),
+        F.col("like_count").alias("like_cnt"),
+        F.col("dislike_count").alias("dislike_cnt"),
+        F.col("view_count").alias("view_cnt"),
+        F.col("comment_count").alias("comment_cnt"),
+        "car_name",
+        "source"
+        )
+    return df_posts, df_comments
 
 def make_sentence(df, type):
     try:
-        if df is None or df.count() == 0:
+        if df is None:
             print(f"[WARNING] {type} 데이터가 비어 있어 변환을 건너뜁니다.")
             return None
 
@@ -159,7 +108,9 @@ def make_sentence(df, type):
 # 텍스트 정제
 def to_cleaned(df):
     try:
+        df = df.filter(length(col("text")) > 10)
         # df = df.withColumn("text", lower(col("text")))
+        df = df.filter(col("text").rlike(".*[가-힣].*"))
         df = df.withColumn("text", regexp_replace(col("text"), r"http\S+", ""))
         df = df.withColumn("text", regexp_replace(col("text"), r"https\S+", ""))
         df = df.withColumn("text", regexp_replace(col("text"), r"@\S+", ""))
@@ -175,7 +126,6 @@ def to_cleaned(df):
             ),
         )
         df = df.withColumn("text", trim(regexp_replace(col("text"), r"\s+", " ")))
-        df = df.filter(col("text").rlike(".*[가-힣].*"))
         df = df.filter(length(col("text")) > 10)
         return df
 
@@ -245,4 +195,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     print(f"Processing {args.car_name} data for {args.year}-{args.month}")
-    process_text(args.year, args.month, "그랜저")
+    process_text(args.year, args.month,args.car_name)

@@ -26,10 +26,10 @@ INPUT_S3_PATH="s3://the-all-new-bucket/${ENCODED_KEYWORD}/${YEAR}/${MONTH}"
 OUTPUT_S3_PATH="s3://the-all-new-bucket/${ENCODED_KEYWORD}/${YEAR}/${MONTH}"
 
 # 실행할 EMR 클러스터 ID
-CLUSTER_ID="j-1VDSYIBP4Y7QS"
+CLUSTER_ID="j-3DLDTWUMLLR50"
 
 # Spark 작업 제출
-aws emr add-steps --cluster-id $CLUSTER_ID --steps Type=Spark,Name="TextTransformJob",ActionOnFailure=CONTINUE,\
+aws emr add-steps --cluster-id $CLUSTER_ID --steps Type=Spark,Name="TextProcessingJob",ActionOnFailure=CONTINUE,\
 Args=[\
 --deploy-mode,client,\
 --master,yarn,\
