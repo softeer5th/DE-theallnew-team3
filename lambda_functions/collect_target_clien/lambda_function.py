@@ -4,10 +4,12 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 
+
 def get_before_day(day_filter):
-    date_obj = datetime.strptime(day_filter, "%Y-%m-%d") 
-    prev_day = date_obj - timedelta(days=7)  
+    date_obj = datetime.strptime(day_filter, "%Y-%m-%d")
+    prev_day = date_obj - timedelta(days=7)
     return prev_day.strftime("%Y-%m-%d")  # 문자열로 변환 후 반환
+
 
 def lambda_handler(event, context):
     try:
@@ -15,21 +17,24 @@ def lambda_handler(event, context):
 
         input_date = event["input_date"]
         car_name = event["car_name"]
+        search_keyword = event["search_keyword"]
 
-        if input_date == "" or car_name == "":
+        if not input_date or not car_name or not search_keyword:
             return {
                 "statusCode": 400,
-                "body": json.dumps("input_date and car_name are required"),
+                "body": json.dumps(
+                    "input_date and car_name and search_keyword are required"
+                ),
             }
 
-        year, month,day = input_date.split("-")
-        start_date= get_before_day(input_date)
+        year, month, day = input_date.split("-")
+        start_date = get_before_day(input_date)
 
         BUCKET_NAME = "the-all-new-bucket"
         OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/clien_target_urls.csv"
 
         params = {
-            "q": car_name,
+            "q": search_keyword,
             "p": 1,
             "sort": "recency",
             "boardCd": "",
@@ -41,7 +46,7 @@ def lambda_handler(event, context):
         urls = []
         for i in range(50):
             params["p"] = i
-            html = requests.get(TARGET_URL, params=params, headers=headers,timeout=5)
+            html = requests.get(TARGET_URL, params=params, headers=headers)
             soup = BeautifulSoup(html.content, "html.parser")
 
             search_result = soup.find("div", "total_search")
@@ -49,13 +54,13 @@ def lambda_handler(event, context):
             for post in posts:
                 timestamp = post.find("span", "timestamp").text  # 게시물 날짜 추출
                 post_date = timestamp[:10]  # "YYYY-MM-DD"
-                
+
                 if start_date <= post_date <= input_date:
                     urls.append("https://www.clien.net" + post.find("a")["href"])
-                    
-                #수집 대상 날짜보다 이전 날짜가 나오면 중단
+
+                # 수집 대상 날짜보다 이전 날짜가 나오면 중단
                 if post_date < start_date:
-                    #print("더 이상 수집할 데이터 없음. 종료.")
+                    # print("더 이상 수집할 데이터 없음. 종료.")
                     break
         with open(
             f"/tmp/clien_{input_date}_{car_name}.csv", "w", encoding="utf-8"

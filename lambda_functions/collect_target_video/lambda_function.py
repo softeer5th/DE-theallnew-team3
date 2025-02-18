@@ -4,8 +4,9 @@ import boto3
 from googleapiclient.discovery import build
 from datetime import datetime, timedelta
 
+
 def get_before_day(day_filter):
-    date_obj = datetime.strptime(day_filter, "%Y-%m-%d") 
+    date_obj = datetime.strptime(day_filter, "%Y-%m-%d")
     prev_day = date_obj - timedelta(days=7)  # 7일 전
     return prev_day.strftime("%Y-%m-%d")  # 문자열로 변환 후 반환
 
@@ -16,11 +17,14 @@ def lambda_handler(event, context):
 
         input_date = event["input_date"]
         car_name = event["car_name"]
+        search_keyword = event["search_keyword"]
 
-        if input_date == "" or car_name == "":
+        if not input_date or not car_name or not search_keyword:
             return {
                 "statusCode": 400,
-                "body": json.dumps("input_date and car_name are required"),
+                "body": json.dumps(
+                    "input_date and car_name and search_keyword are required"
+                ),
             }
 
         if API_KEY == "":
@@ -30,11 +34,10 @@ def lambda_handler(event, context):
             }
 
         target_date = get_before_day(input_date)
-        year,month,day = input_date.split("-")
+        year, month, day = input_date.split("-")
 
         BUCKET_NAME = "the-all-new-bucket"
         OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/youtube_target_videos.csv"
-
 
         published_after = f"{target_date}T00:00:00Z"
         published_before = f"{input_date}T23:59:59Z"
@@ -44,7 +47,7 @@ def lambda_handler(event, context):
         response = (
             youtube.search()
             .list(
-                q=car_name,
+                q=search_keyword,
                 part="snippet",
                 maxResults=50,
                 order="viewCount",

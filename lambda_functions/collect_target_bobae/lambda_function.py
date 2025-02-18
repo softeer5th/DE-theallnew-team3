@@ -5,11 +5,13 @@ from bs4 import BeautifulSoup
 import time
 from datetime import datetime, timedelta
 
+
 def get_before_day(day_filter):
     """입력 날짜에서 7일 전 날짜 반환"""
     date_obj = datetime.strptime(day_filter, "%Y-%m-%d")
     prev_day = date_obj - timedelta(days=7)
     return prev_day.strftime("%Y-%m-%d")  # YYYY-MM-DD
+
 
 def lambda_handler(event, context):
     try:
@@ -17,16 +19,19 @@ def lambda_handler(event, context):
 
         input_date = event["input_date"]
         car_name = event["car_name"]
-        
-        start_date = get_before_day(input_date)
 
-        if input_date == "" or car_name == "":
+        start_date = get_before_day(input_date)
+        search_keyword = event["search_keyword"]
+
+        if not input_date or not car_name or not search_keyword:
             return {
                 "statusCode": 400,
-                "body": json.dumps("input_date and car_name are required"),
+                "body": json.dumps(
+                    "input_date and car_name and search_keyword are required"
+                ),
             }
 
-        year, month,day = input_date.split("-")
+        year, month, day = input_date.split("-")
 
         BUCKET_NAME = "the-all-new-bucket"
         OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/bobae_target_links.csv"
@@ -37,7 +42,7 @@ def lambda_handler(event, context):
             "page": 0,
             "sort": "DATE",
             "startDate": "",
-            "keyword": car_name,
+            "keyword": search_keyword,
         }
 
         ua = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.35 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.35"
@@ -57,12 +62,7 @@ def lambda_handler(event, context):
 
         while True:
             form_data["page"] = page
-            res = requests.post(
-                TARGET_URL,
-                data=form_data,
-                headers=headers,
-                timeout=10
-            )
+            res = requests.post(TARGET_URL, data=form_data, headers=headers)
 
             soup = BeautifulSoup(res.content, "html.parser")
             links = soup.find("div", "search_Community")
@@ -83,7 +83,7 @@ def lambda_handler(event, context):
                 elif link_date < start_date:
                     stop_flag = True
                     break  # 날짜가 범위 밖이면 중단
-                
+
             page += 1
             if stop_flag:
                 break

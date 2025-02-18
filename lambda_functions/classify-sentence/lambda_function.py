@@ -14,7 +14,7 @@ def analyze_comments_batch(comments):
     """배치로 코멘트 감성 분석 및 주제 분류"""
     try:
         formatted_comments = "\n".join(
-            [f"{i+1}. {comment}" for i, comment in enumerate(comments)]
+            [f"{i+1}. {comment[1]}" for i, comment in enumerate(comments)]
         )
 
         prompt = f"""
@@ -68,7 +68,7 @@ def analyze_comments_batch(comments):
 
                 results.append(
                     {
-                        "text": comments[i],
+                        "sentence_id": comments[i][0],
                         "sentiment_score": sentiment,
                         "category": topic,
                         "keyword": subtopic,
@@ -113,14 +113,13 @@ def lambda_handler(event, context):
         )
         data = df.to_dict(orient="records")
 
-        if not data:
-            return {"statusCode": 500, "body": json.dumps("S3 데이터 다운로드 실패")}
-
         results = []
 
         # 배치 처리
         for i in range(0, len(data), BATCH_SIZE):
-            batch = [item["text"] for item in data[i : i + BATCH_SIZE]]
+            batch = [
+                (item["sentence_id"], item["text"]) for item in data[i : i + BATCH_SIZE]
+            ]
             batch_results = analyze_comments_batch(batch)
             print(f"batch {i} complete")
 
