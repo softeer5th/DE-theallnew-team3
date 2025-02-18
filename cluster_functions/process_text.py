@@ -195,4 +195,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     print(f"Processing {args.car_name} data for {args.year}-{args.month}")
-    process_text(args.year, args.month, "그랜저")
+    process_text(args.year, args.month,args.car_name)
