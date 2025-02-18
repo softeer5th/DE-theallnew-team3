@@ -6,6 +6,8 @@ from datetime import datetime
 from googleapiclient.discovery import build
 from youtube_comment_downloader import YoutubeCommentDownloader, SORT_BY_POPULAR
 
+BATCH_SIZE = 10
+
 
 def lambda_handler(event, context):
     try:
@@ -49,7 +51,7 @@ def lambda_handler(event, context):
             video_ids = f.readlines()
             video_ids = [video_id.strip() for video_id in video_ids]
 
-        video_ids = video_ids[(page - 1) * 10 : page * 10]
+        video_ids = video_ids[page - 1 :: BATCH_SIZE]
 
         stats_response = (
             youtube.videos()

@@ -11,11 +11,14 @@ def lambda_handler(event, context):
 
         input_date = event["input_date"]
         car_name = event["car_name"]
+        search_keyword = event["search_keyword"]
 
-        if input_date == "" or car_name == "":
+        if not input_date or not car_name or not search_keyword:
             return {
                 "statusCode": 400,
-                "body": json.dumps("input_date and car_name are required"),
+                "body": json.dumps(
+                    "input_date and car_name and search_keyword are required"
+                ),
             }
 
         year, month = input_date.split("-")
@@ -29,7 +32,7 @@ def lambda_handler(event, context):
             "page": 0,
             "sort": "DATE",
             "startDate": "",
-            "keyword": car_name,
+            "keyword": search_keyword,
         }
 
         ua = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.35 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.35"

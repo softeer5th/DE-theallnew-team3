@@ -10,11 +10,14 @@ def lambda_handler(event, context):
 
         input_date = event["input_date"]
         car_name = event["car_name"]
+        search_keyword = event["search_keyword"]
 
-        if input_date == "" or car_name == "":
+        if not input_date or not car_name or not search_keyword:
             return {
                 "statusCode": 400,
-                "body": json.dumps("input_date and car_name are required"),
+                "body": json.dumps(
+                    "input_date and car_name and search_keyword are required"
+                ),
             }
 
         if API_KEY == "":
@@ -47,7 +50,7 @@ def lambda_handler(event, context):
         response = (
             youtube.search()
             .list(
-                q=car_name,
+                q=search_keyword,
                 part="snippet",
                 maxResults=50,
                 order="viewCount",
