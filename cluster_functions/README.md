@@ -14,7 +14,7 @@
 ``` 
 
 5. 결과확인  
-s3://{bucket_name}/{차종}/{년}/{월}/post_data  
+- s3://{bucket_name}/{차종}/{년}/{월}/post_data  
 
 
 | post_id            |       title               |     author |    article                | timestamp|like_cnt|dislike_cnt|view_cnt|comment_cnt|car_name| source|  
@@ -22,7 +22,7 @@ s3://{bucket_name}/{차종}/{년}/{월}/post_data
 |ee21afb1-cd4e-4d6...| 너무 멋진 현대자동차 신형 그랜...|  Virtual Now| 너무 멋진 현대자동차 신형 그랜...|1736038839|     248|          0|   46216|         31|  그랜저|youtube|  
 
 
-s3://{bucket_name}/{차종}/{년}/{월}/comment_data  
+- s3://{bucket_name}/{차종}/{년}/{월}/comment_data  
 +--------------------+----------------+----------------------------------+----------+--------+-----------+--------------------+  
 |          comment_id|          author|                           content| timestamp|like_cnt|dislike_cnt|             post_id|  
 +--------------------+----------------+----------------------------------+----------+--------+-----------+--------------------+  
@@ -30,7 +30,7 @@ s3://{bucket_name}/{차종}/{년}/{월}/comment_data
 |f392fb81-f3b9-41f...|    @radiotracer|  옆에 제설함이 떡하니 있는데. ...|1739435766|       1|          0|7092fdf6-bcdd-495...|  
 
 
-s3://{bucket_name}/{차종}/{년}/{월}/sentence_data  
+- s3://{bucket_name}/{차종}/{년}/{월}/sentence_data  
 +--------------------+----+----------------------------------+--------------------+----------+  
 |         sentence_id|type|                              text|             post_id|comment_id|  
 +--------------------+----+----------------------------------+--------------------+----------+  
