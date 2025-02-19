@@ -137,20 +137,20 @@ def to_cleaned(df):
         return None
 
 
-def process_text(year, month, car_name):
+def process_text(year, month, day, car_name):
     spark = SparkSession.builder.appName("Process Text").getOrCreate()
 
     # s3에서 json 파일 읽어오기
     df_youtube = spark.read.json(
-        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/youtube_raw_*.json",
+        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/youtube_raw_*.json",
         multiLine=True,
     )
     df_bobae = spark.read.json(
-        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/bobae_raw.json",
+        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/bobae_raw.json",
         multiLine=True,
     )
     df_clien = spark.read.json(
-        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/clien_raw.json",
+        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/clien_raw.json",
         multiLine=True,
     )
 
@@ -165,10 +165,10 @@ def process_text(year, month, car_name):
 
     # parquet 저장
     df_post.write.mode("overwrite").parquet(
-        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/post_data"
+        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/post_data"
     )
     df_comment.write.mode("overwrite").parquet(
-        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/comment_data"
+        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/comment_data"
     )
 
     # post data를 sentence data로 변환
@@ -183,7 +183,7 @@ def process_text(year, month, car_name):
 
     df = df.repartition(10)
     df.write.mode("overwrite").parquet(
-        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/sentence_data"
+        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/sentence_data"
     )
 
     spark.stop()
@@ -194,8 +194,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--year", help="The year of the data.")
     parser.add_argument("--month", help="The month of the data.")
+    parser.add_argument("--day", help="The day of the data.")
     parser.add_argument("--car_name", help="The name of the car.")
     args = parser.parse_args()
 
-    print(f"Processing {args.car_name} data for {args.year}-{args.month}")
-    process_text(args.year, args.month, args.car_name)
+    print(f"Processing {args.car_name} data for {args.year}-{args.month}-{args.day}")
+    process_text(args.year, args.month, args.day, args.car_name)
