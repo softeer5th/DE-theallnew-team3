@@ -3,7 +3,13 @@ import boto3
 import requests
 from bs4 import BeautifulSoup
 import time
+from datetime import datetime, timedelta
 
+def get_before_day(day_filter):
+    """입력 날짜에서 7일 전 날짜 반환"""
+    date_obj = datetime.strptime(day_filter, "%Y-%m-%d")
+    prev_day = date_obj - timedelta(days=7)
+    return prev_day.strftime("%Y-%m-%d")  # YYYY-MM-DD
 
 def lambda_handler(event, context):
     try:
@@ -11,6 +17,8 @@ def lambda_handler(event, context):
 
         input_date = event["input_date"]
         car_name = event["car_name"]
+        
+        start_date = get_before_day(input_date)
 
         if input_date == "" or car_name == "":
             return {
@@ -18,10 +26,10 @@ def lambda_handler(event, context):
                 "body": json.dumps("input_date and car_name are required"),
             }
 
-        year, month = input_date.split("-")
+        year, month,day = input_date.split("-")
 
         BUCKET_NAME = "the-all-new-bucket"
-        OBJECT_KEY = f"{car_name}/{year}/{month}/bobae_target_links.csv"
+        OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/bobae_target_links.csv"
 
         form_data = {
             "colle": "community",
@@ -44,8 +52,6 @@ def lambda_handler(event, context):
             "Referer": referer,
         }
 
-        YEAR, MONTH = input_date.split("-")
-
         page = 1
         target_links = []
 
@@ -55,6 +61,7 @@ def lambda_handler(event, context):
                 TARGET_URL,
                 data=form_data,
                 headers=headers,
+                timeout=10
             )
 
             soup = BeautifulSoup(res.content, "html.parser")
@@ -65,17 +72,18 @@ def lambda_handler(event, context):
             stop_flag = False
 
             for link in links:
-                date = link.find_all("span", "next")[1].text
-                date = date.split(". ")
-                target_year = int(YEAR[2:])
-                target_month = int(MONTH)
-                link_year = int(date[0])
-                link_month = int(date[1])
-                if link_year == target_year and link_month == target_month:
+                # 날짜 추출 및 변환
+                date_str = link.find_all("span", "next")[1].text  # "25. 01. 30"
+                date_parts = date_str.split(". ")
+                link_date = f"20{date_parts[0]}-{date_parts[1]}-{date_parts[2]}"  # YYYY-MM-DD 형식으로 변환
+
+                # 날짜 비교
+                if start_date <= link_date <= input_date:
                     target_links.append(link.find("a")["href"])
-                elif link_year < target_year or link_month < target_month:
+                elif link_date < start_date:
                     stop_flag = True
-                    break
+                    break  # 날짜가 범위 밖이면 중단
+                
             page += 1
             if stop_flag:
                 break

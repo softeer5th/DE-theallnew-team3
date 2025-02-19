@@ -2,7 +2,12 @@ import json
 import boto3
 import requests
 from bs4 import BeautifulSoup
+from datetime import datetime, timedelta
 
+def get_before_day(day_filter):
+    date_obj = datetime.strptime(day_filter, "%Y-%m-%d") 
+    prev_day = date_obj - timedelta(days=7)  
+    return prev_day.strftime("%Y-%m-%d")  # 문자열로 변환 후 반환
 
 def lambda_handler(event, context):
     try:
@@ -17,10 +22,11 @@ def lambda_handler(event, context):
                 "body": json.dumps("input_date and car_name are required"),
             }
 
-        year, month = input_date.split("-")
+        year, month,day = input_date.split("-")
+        start_date= get_before_day(input_date)
 
         BUCKET_NAME = "the-all-new-bucket"
-        OBJECT_KEY = f"{car_name}/{year}/{month}/clien_target_urls.csv"
+        OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/clien_target_urls.csv"
 
         params = {
             "q": car_name,
@@ -35,17 +41,22 @@ def lambda_handler(event, context):
         urls = []
         for i in range(50):
             params["p"] = i
-            html = requests.get(TARGET_URL, params=params, headers=headers)
+            html = requests.get(TARGET_URL, params=params, headers=headers,timeout=5)
             soup = BeautifulSoup(html.content, "html.parser")
 
             search_result = soup.find("div", "total_search")
             posts = search_result.find_all("div", "list_item symph_row jirum")
             for post in posts:
-                timestamp = post.find("span", "timestamp").text
-                if input_date == timestamp[:7]:
+                timestamp = post.find("span", "timestamp").text  # 게시물 날짜 추출
+                post_date = timestamp[:10]  # "YYYY-MM-DD"
+                
+                if start_date <= post_date <= input_date:
                     urls.append("https://www.clien.net" + post.find("a")["href"])
-                # TODO: should stop when timestamp is before input_date
-
+                    
+                #수집 대상 날짜보다 이전 날짜가 나오면 중단
+                if post_date < start_date:
+                    #print("더 이상 수집할 데이터 없음. 종료.")
+                    break
         with open(
             f"/tmp/clien_{input_date}_{car_name}.csv", "w", encoding="utf-8"
         ) as f:
