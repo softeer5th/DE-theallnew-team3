@@ -60,6 +60,7 @@ def to_flattend(spark, df, source, car_name):
         F.col("comment_count").alias("comment_cnt"),
         "car_name",
         "source",
+        F.col("id").alias("source_post_id"),
     )
     return df_posts, df_comments
 
