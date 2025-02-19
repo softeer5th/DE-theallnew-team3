@@ -18,11 +18,11 @@ def lambda_handler(event, context):
                 "body": json.dumps("input_date and car_name are required"),
             }
 
-        year, month = input_date.split("-")
+        year, month, day = input_date.split("-")
 
         BUCKET_NAME = "the-all-new-bucket"
-        READ_OBJECT_KEY = f"{car_name}/{year}/{month}/bobae_target_links.csv"
-        WRITE_OBJECT_KEY = f"{car_name}/{year}/{month}/bobae_raw.json"
+        READ_OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/bobae_target_links.csv"
+        WRITE_OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/bobae_raw.json"
 
         s3 = boto3.client("s3")
         s3.download_file(
@@ -52,7 +52,7 @@ def lambda_handler(event, context):
 
                 data["car_name"] = car_name
                 data["source"] = "bobae"
-                data["id"] = link
+                data["id"] = "bobae_" + link.split("=")[-1]
 
                 title = profile.find("dt").attrs["title"]
                 data["title"] = title
