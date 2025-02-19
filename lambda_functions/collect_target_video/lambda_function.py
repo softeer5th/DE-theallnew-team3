@@ -2,6 +2,12 @@ import json
 import os
 import boto3
 from googleapiclient.discovery import build
+from datetime import datetime, timedelta
+
+def get_before_day(day_filter):
+    date_obj = datetime.strptime(day_filter, "%Y-%m-%d") 
+    prev_day = date_obj - timedelta(days=7)  # 7일 전
+    return prev_day.strftime("%Y-%m-%d")  # 문자열로 변환 후 반환
 
 
 def lambda_handler(event, context):
@@ -23,24 +29,15 @@ def lambda_handler(event, context):
                 "body": json.dumps("YOUTUBE_API_KEY is required"),
             }
 
-        year = input_date.split("-")[0]
-        month = input_date.split("-")[1]
+        target_date = get_before_day(input_date)
+        year,month,day = input_date.split("-")
 
         BUCKET_NAME = "the-all-new-bucket"
-        OBJECT_KEY = f"{car_name}/{year}/{month}/youtube_target_videos.csv"
+        OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/youtube_target_videos.csv"
 
-        def get_next_month(month_filter):
-            year, month = map(int, month_filter.split("-"))
-            if month == 12:
-                year += 1
-                month = 1
-            else:
-                month += 1
 
-            return f"{year}-{month:02d}"
-
-        published_after = f"{input_date}-01T00:00:00Z"
-        published_before = f"{get_next_month(input_date)}-01T00:00:00Z"
+        published_after = f"{target_date}T00:00:00Z"
+        published_before = f"{input_date}T23:59:59Z"
 
         youtube = build("youtube", "v3", developerKey=API_KEY)
 
