@@ -1,7 +1,6 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from common.slack import slack_info_message, slack_handle_task_failure
-from datetime import datetime
 import random
 
 

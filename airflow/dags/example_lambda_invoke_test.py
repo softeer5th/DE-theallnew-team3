@@ -2,7 +2,6 @@
 import logging
 import json
 from airflow import DAG
-from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
 from airflow.providers.amazon.aws.operators.lambda_function import (
     LambdaInvokeFunctionOperator,
@@ -17,7 +16,7 @@ def log_lambda_result(**kwargs):
     LambdaInvokeFunctionOperator의 XCom 응답을 로깅하는 함수
     """
     task_instance = kwargs["ti"]
-    response = task_instance.xcom_pull(task_ids="task4")
+    response = task_instance.xcom_pull(task_ids="lambda_invoke_task")
     logger.info(f"Lambda Response: {response}")
     if response:
         try:
@@ -39,8 +38,11 @@ with DAG(
         task_id="lambda_invoke_task",
         function_name="lambda_example",
         aws_conn_id="aws_default",
-        payload={"from": "airflow", "timestamp": datetime.now().isoformat()},
+        payload=json.dumps(
+            {"from": "airflow", "timestamp": datetime.now().isoformat()}
+        ),
     )
+
     log_result_task = PythonOperator(
         task_id="log_result_task",
         python_callable=log_lambda_result,
