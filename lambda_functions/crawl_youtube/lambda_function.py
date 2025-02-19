@@ -70,6 +70,8 @@ def lambda_handler(event, context):
         # 댓글 다운로드 객체 생성
         downloader = YoutubeCommentDownloader()
 
+        print("=====START=====")
+
         for item in stats_response["items"]:
             video_id = item["id"]
             statistics = item.get("statistics", {})
@@ -120,6 +122,7 @@ def lambda_handler(event, context):
 
             # 최종 데이터 리스트에 추가
             video_data_list.append(video_info)
+            print(f"{video_id} Success")
 
         # JSON 파일 저장 (YYYY-MM.json)
         with open(
@@ -132,6 +135,7 @@ def lambda_handler(event, context):
             BUCKET_NAME,
             WRITE_OBJECT_KEY,
         )
+        print(f"{WRITE_OBJECT_KEY} 업로드 완료")
 
         return {"statusCode": 200}
 
