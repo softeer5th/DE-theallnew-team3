@@ -137,7 +137,7 @@ def unify_clien_post_content(posts, car_name):
 
         unified_post = {
             "car_name": car_name,
-            "id": url,
+            "id": "clien_" + url.split("?")[0].split("/")[-1],
             "source": "clien",
             "title": title,
             "nickname": nickname,
@@ -176,11 +176,11 @@ def lambda_handler(event, context):
                 "body": json.dumps("input_date and car_name are required"),
             }
 
-        year, month = input_date.split("-")
+        year, month, day = input_date.split("-")
 
         BUCKET_NAME = "the-all-new-bucket"
-        READ_OBJECT_KEY = f"{car_name}/{year}/{month}/clien_target_urls.csv"
-        WRITE_OBJECT_KEY = f"{car_name}/{year}/{month}/clien_raw.json"
+        READ_OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/clien_target_urls.csv"
+        WRITE_OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/clien_raw.json"
 
         s3 = boto3.client("s3")
         s3.download_file(

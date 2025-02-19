@@ -31,12 +31,11 @@ def lambda_handler(event, context):
 
         youtube = build("youtube", "v3", developerKey=API_KEY)
 
-        year = input_date.split("-")[0]
-        month = input_date.split("-")[1]
+        year, month, day = input_date.split("-")
 
         BUCKET_NAME = "the-all-new-bucket"
-        READ_OBJECT_KEY = f"{car_name}/{year}/{month}/youtube_target_videos.csv"
-        WRITE_OBJECT_KEY = f"{car_name}/{year}/{month}/youtube_raw_{page}.json"
+        READ_OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/youtube_target_videos.csv"
+        WRITE_OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/youtube_raw_{page}.json"
 
         s3 = boto3.client("s3")
         s3.download_file(
@@ -78,7 +77,7 @@ def lambda_handler(event, context):
 
             # 영상 정보 저장 (변경된 JSON 스키마 적용)
             video_info = {
-                "id": video_id,
+                "id": "youtube_" + video_id,
                 "car_name": car_name,
                 "source": "youtube",
                 "title": snippet.get("title", ""),

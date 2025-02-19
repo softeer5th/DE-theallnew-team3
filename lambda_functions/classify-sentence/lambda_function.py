@@ -101,11 +101,11 @@ def lambda_handler(event, context):
         if not API_KEY:
             return {"statusCode": 400, "body": json.dumps("OPENAI_API_KEY is required")}
 
-        year, month = input_date.split("-")[:2]
+        year, month, day = input_date.split("-")
 
         BUCKET_NAME = "the-all-new-bucket"
-        READ_OBJECT_KEY = f"{car_name}/{year}/{month}/sentence_data/{object_key}"
-        WRITE_OBJECT_KEY = f"{car_name}/{year}/{month}/classified/{object_key}"
+        READ_OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/sentence_data/{object_key}"
+        WRITE_OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/classified/{object_key}"
 
         df = wr.s3.read_parquet(
             path=f"s3://{BUCKET_NAME}/{READ_OBJECT_KEY}",
