@@ -9,11 +9,14 @@ import uuid
 
 BUCKET_NAME = "the-all-new-bucket"
 
+
 # UUID 생성 UDF 정의
 def get_uuid():
     return str(uuid.uuid4())
 
+
 get_uuid_udf = udf(get_uuid, StringType())  # Spark UDF로 변환
+
 
 def to_flattend(spark, df, source, car_name):
 
@@ -24,7 +27,6 @@ def to_flattend(spark, df, source, car_name):
     # `uuid()`로 `post_id` 생성
     df_with_post_id = df.withColumn("post_id", F.expr("uuid()"))
 
-
     # explode() 적용 전에 comment_count > 0 필터링
     df_filtered = df_with_post_id.filter(F.col("comment_count") > 0)
 
@@ -34,17 +36,17 @@ def to_flattend(spark, df, source, car_name):
     # 필요한 컬럼만 선택하여 메모리 사용량 절감
     df_comments = df_comments.select(
         F.expr("uuid()").alias("comment_id"),  # UDF 없이 Spark 내장 함수 사용
-        F.col("comment.comment_nickname").alias("author"), 
-        F.col("comment.comment_content").alias("content"),    
+        F.col("comment.comment_nickname").alias("author"),
+        F.col("comment.comment_content").alias("content"),
         F.col("comment.comment_date").alias("timestamp"),
-        F.col("comment.comment_like_count").alias("like_cnt"),       
-        F.col("comment.comment_dislike_count").alias("dislike_cnt"), 
-        "post_id"
+        F.col("comment.comment_like_count").alias("like_cnt"),
+        F.col("comment.comment_dislike_count").alias("dislike_cnt"),
+        "post_id",
     )
 
-    df_posts= df_with_post_id.drop("comments")
-    df_posts=df_posts.withColumn("car_name",F.lit(car_name))
-    df_posts=df_posts.withColumn("source",F.lit(source))
+    df_posts = df_with_post_id.drop("comments")
+    df_posts = df_posts.withColumn("car_name", F.lit(car_name))
+    df_posts = df_posts.withColumn("source", F.lit(source))
 
     df_posts = df_posts.select(
         "post_id",
@@ -57,9 +59,10 @@ def to_flattend(spark, df, source, car_name):
         F.col("view_count").alias("view_cnt"),
         F.col("comment_count").alias("comment_cnt"),
         "car_name",
-        "source"
-        )
+        "source",
+    )
     return df_posts, df_comments
+
 
 def make_sentence(df, type):
     try:
@@ -195,4 +198,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     print(f"Processing {args.car_name} data for {args.year}-{args.month}")
-    process_text(args.year, args.month,args.car_name)
+    process_text(args.year, args.month, args.car_name)
