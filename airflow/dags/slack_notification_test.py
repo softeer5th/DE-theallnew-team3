@@ -1,6 +1,6 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from airflow.providers.slack.operators.slack_webhook import SlackWebhookOperator
+from common.slack import slack_info_message, slack_handle_task_failure
 from datetime import datetime
 import random
 
@@ -22,11 +22,11 @@ with DAG(
     random_success_task = PythonOperator(
         task_id="random_success_task",
         python_callable=random_task,
+        on_failure_callback=slack_handle_task_failure,
     )
-    send_slack_message = SlackWebhookOperator(
-        task_id="slack_webhook_send_text",
-        slack_webhook_conn_id="slack_default",
-        message=("Test Message"),
+
+    send_slack_message = slack_info_message(
+        message="Test Message", dag=dag, task_id="slack_webhook_send_text"
     )
 
     random_success_task >> send_slack_message
