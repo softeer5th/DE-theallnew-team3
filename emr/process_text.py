@@ -1,9 +1,10 @@
 import argparse
 from datetime import datetime, timedelta, timezone
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, explode, lit, split
+from pyspark.sql.functions import col, explode, lit, split, udf
 from pyspark.sql.functions import lower, regexp_replace, trim, length
 from pyspark.sql import functions as F
+from pyspark.sql.types import StringType
 
 BUCKET_NAME = "the-all-new-bucket"
 
@@ -24,7 +25,7 @@ def save_missing_post_data(df, data_type, car_name, year, month, day):
     """
     결측치가 있는 데이터를 별도로 저장하는 함수
     """
-    # 결측치가 있는 데이터를 필터링 (timestamp, title 등에서 null 체크)
+    # 결측치가 있는 데이터를 필터링 
     missing_data_df = df.filter(
         col("id").isNull() |
         col("car_name").isNull() |
@@ -42,7 +43,7 @@ def save_missing_post_data(df, data_type, car_name, year, month, day):
     if missing_data_df.count() > 0:
         # 누락된 데이터가 있을 경우, 별도의 파일로 저장
         missing_data_df.write.mode("overwrite").parquet(
-            f"s3a://{BUCKET_NAME}/{car_name}/{year}/{month}/missing_data/{day}_{data_type}_post_missing"
+            f"s3a://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/missing_data/{data_type}_post_missing"
         )
         print(f"Missing data for {data_type} saved.")
     else:
@@ -71,18 +72,18 @@ def save_missing_comment_data(df, data_type, car_name, year, month, day):
     """
     # 결측치가 있는 데이터를 필터링 (timestamp, title 등에서 null 체크)
     missing_data_df = df.filter(
-        col("comment_id").isNull() |
+        col("comment_uuid").isNull() |
         col("author").isNull() |
         col("content").isNull() |
         col("timestamp").isNull() | 
-        col("like_cnt").isNull() | (col("like_count") < 0) |
-        col("dislike_cnt").isNull() |(col("dislike_count") < 0) 
+        col("like_cnt").isNull() | (col("like_cnt") < 0) |
+        col("dislike_cnt").isNull() |(col("dislike_cnt") < 0) 
     )
 
     if missing_data_df.count() > 0:
         # 누락된 데이터가 있을 경우, 별도의 파일로 저장
         missing_data_df.write.mode("overwrite").parquet(
-            f"s3a://{BUCKET_NAME}/{car_name}/{year}/{month}/missing_data/{day}_{data_type}_comment_missing"
+            f"s3a://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/missing_data/{data_type}_comment_missing"
         )
         print(f"Missing data for {data_type} saved.")
     else:
@@ -90,7 +91,7 @@ def save_missing_comment_data(df, data_type, car_name, year, month, day):
     
     # 결측치가 있는 데이터를 제외한 DataFrame 반환
     df_cleaned = df.filter(
-        col("comment_id").isNotNull() & 
+        col("comment_uuid").isNotNull() & 
         col("author").isNotNull() & 
         col("content").isNotNull() & 
         col("timestamp").isNotNull() & 
@@ -118,7 +119,7 @@ def seperate_post_and_comment(df, source, car_name,year,month,day):
 
     # rename columns
     comment_df = comment_df.select(
-        F.expr("uuid()").alias("comment_id"),
+        F.expr("uuid()").alias("comment_uuid"),
         F.col("comment.comment_nickname").alias("author"),
         F.col("comment.comment_content").alias("content"),
         F.col("comment.comment_date").alias("timestamp"),
@@ -154,7 +155,7 @@ def seperate_post_and_comment(df, source, car_name,year,month,day):
 
 def explode_post(post_df):
     title_sentence_df = post_df.select(
-        F.expr("uuid()").alias("sentence_id"),
+        F.expr("uuid()").alias("sentence_uuid"),
         col("post_uuid"),
         lit(None).cast("string").alias("comment_id"),
         lit("post").alias("type"),
@@ -163,7 +164,7 @@ def explode_post(post_df):
     article_sentence_df = post_df.select(
         F.expr("uuid()").alias("sentence_id"),
         col("post_uuid"),
-        lit(None).alias("comment_id"),
+        lit(None).alias("comment_uuid"),
         lit("post").alias("type"),
         explode(split(col("article"), "\n")).alias("text"),
     )
@@ -175,9 +176,9 @@ def explode_post(post_df):
 
 def explode_comment(comment_df):
     sentence_df = comment_df.select(
-        F.expr("uuid()").alias("sentence_id"),
-        col("post_id"),
-        col("comment_id"),
+        F.expr("uuid()").alias("sentence_uuid"),
+        col("post_uuid"),
+        col("comment_uuid"),
         lit("comment").alias("type"),
         col("content").alias("text"),
     )
