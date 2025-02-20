@@ -78,135 +78,125 @@ def extract_nav_content(url, html):
     return post
 
 
-def send_requests(urls):
-    """각 URL에 GET 요청을 보내고 'nav-content' div를 추출하는 함수"""
+def send_request(url):
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"
     }
 
-    posts = []
-    for idx, url in enumerate(urls):
-        try:
-            response = requests.get(url, headers=headers, timeout=10)
-            if response.status_code == 200:
-                posts.append(extract_nav_content(url, response.text))
-            else:
-                print(f"요청 실패: {url} (상태 코드: {response.status_code})")
-        except requests.RequestException as e:
-            print(f"요청 에러: {url} (에러: {e})")
-
-    return posts
+    response = requests.get(url, headers=headers, timeout=10)
+    return extract_nav_content(url, response.text)
 
 
-def unify_clien_post_content(posts, car_name):
+def unify_clien_post_content(post, car_name):
+    url = post["url"]
+    title = post["post_title"]
+    nickname = post["post_nickname"]
+    article = post["post_article"]
+    like_count = int(post["post_symph"].replace(",", ""))
+    view_count = int(post["post_view_count"].replace(",", ""))
 
-    unified_posts = []
-    for post in posts:
-        url = post["url"]
-        title = post["post_title"]
-        nickname = post["post_nickname"]
-        article = post["post_article"]
-        like_count = int(post["post_symph"].replace(",", ""))
-        view_count = int(post["post_view_count"].replace(",", ""))
+    date_str = post["post_date"].split("\n")[0].strip()
+    date = int(datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S").timestamp())
 
-        date_str = post["post_date"].split("\n")[0].strip()
-        date = int(datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S").timestamp())
+    comment_count = int(post["comment_count"].replace(",", ""))
+    comments = post["comments"]
 
-        comment_count = int(post["comment_count"].replace(",", ""))
-        comments = post["comments"]
+    unified_comments = []
+    for comment in comments:
+        comment_nickname = comment["comment_nickname"]
+        comment_content = comment["comment_content"]
+        comment_like_count = int(comment["comment_symph"].replace(",", ""))
+        comment_dislike_count = 0
+        comment_date_str = comment["comment_date"].split("/")[0].strip()
+        comment_date = int(
+            datetime.strptime(comment_date_str, "%Y-%m-%d %H:%M:%S").timestamp()
+        )
 
-        unified_comments = []
-        for comment in comments:
-            comment_nickname = comment["comment_nickname"]
-            comment_content = comment["comment_content"]
-            comment_like_count = int(comment["comment_symph"].replace(",", ""))
-            comment_dislike_count = 0
-            comment_date_str = comment["comment_date"].split("/")[0].strip()
-            comment_date = int(
-                datetime.strptime(comment_date_str, "%Y-%m-%d %H:%M:%S").timestamp()
-            )
-
-            unified_comment = {
-                "comment_nickname": comment_nickname,
-                "comment_content": comment_content,
-                "comment_like_count": comment_like_count,
-                "comment_dislike_count": comment_dislike_count,
-                "comment_date": comment_date,
-            }
-            unified_comments.append(unified_comment)
-
-        unified_post = {
-            "car_name": car_name,
-            "id": "clien_" + url.split("?")[0].split("/")[-1],
-            "source": "clien",
-            "title": title,
-            "nickname": nickname,
-            "article": article,
-            "like_count": like_count,
-            "dislike_count": 0,
-            "view_count": view_count,
-            "date": date,
-            "comment_count": comment_count,
-            "comments": unified_comments,
+        unified_comment = {
+            "comment_nickname": comment_nickname,
+            "comment_content": comment_content,
+            "comment_like_count": comment_like_count,
+            "comment_dislike_count": comment_dislike_count,
+            "comment_date": comment_date,
         }
-        unified_posts.append(unified_post)
+        unified_comments.append(unified_comment)
 
-    return unified_posts
-
-
-def process_urls(input_date, car_name):
-    with open(f"data/clien_{input_date}_{car_name}.csv", "r", encoding="utf-8") as f:
-        urls = f.readlines()
-
-    posts = send_requests(urls)
-    unified_posts = unify_clien_post_content(posts)
-
-    with open(f"data/clien_{input_date}_{car_name}.json", "w", encoding="utf-8") as f:
-        json.dump(unified_posts, f, ensure_ascii=False, indent=4)
+    unified_post = {
+        "car_name": car_name,
+        "id": "clien_" + url.split("?")[0].split("/")[-1],
+        "source": "clien",
+        "title": title,
+        "nickname": nickname,
+        "article": article,
+        "like_count": like_count,
+        "dislike_count": 0,
+        "view_count": view_count,
+        "date": date,
+        "comment_count": comment_count,
+        "comments": unified_comments,
+    }
+    return unified_post
 
 
 def lambda_handler(event, context):
-    try:
-        input_date = event["input_date"]
-        car_name = event["car_name"]
+    input_date = event["input_date"]
+    car_name = event["car_name"]
 
-        if input_date == "" or car_name == "":
-            return {
-                "statusCode": 400,
-                "body": json.dumps("input_date and car_name are required"),
-            }
+    if input_date == "" or car_name == "":
+        return {
+            "statusCode": 400,
+            "body": json.dumps("input_date and car_name are required"),
+        }
 
-        year, month, day = input_date.split("-")
+    year, month, day = input_date.split("-")
 
-        BUCKET_NAME = "the-all-new-bucket"
-        READ_OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/clien_target_urls.csv"
-        WRITE_OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/clien_raw.json"
+    BUCKET_NAME = "the-all-new-bucket"
+    READ_OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/clien_target_urls.csv"
+    WRITE_OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/clien_raw.json"
 
-        s3 = boto3.client("s3")
-        s3.download_file(
-            BUCKET_NAME, READ_OBJECT_KEY, f"/tmp/clien_{input_date}_{car_name}.csv"
-        )
+    s3 = boto3.client("s3")
+    s3.download_file(
+        BUCKET_NAME, READ_OBJECT_KEY, f"/tmp/clien_{input_date}_{car_name}.csv"
+    )
 
-        with open(
-            f"/tmp/clien_{input_date}_{car_name}.csv", "r", encoding="utf-8"
-        ) as f:
-            urls = f.readlines()
+    with open(f"/tmp/clien_{input_date}_{car_name}.csv", "r", encoding="utf-8") as f:
+        urls = f.readlines()
 
-        posts = send_requests(urls)
-        unified_posts = unify_clien_post_content(posts, car_name)
+    results = []
+    failed_urls = []
 
-        with open(
-            f"/tmp/clien_{input_date}_{car_name}.json", "w", encoding="utf-8"
-        ) as f:
-            json.dump(unified_posts, f, ensure_ascii=False, indent=4)
+    for url in urls:
+        try:
+            post = send_request(url)
+            unified_post = unify_clien_post_content(post, car_name)
+            results.append(unified_post)
+        except Exception as e:
+            print(f"Error processing URL: {url}, Error: {e}")
+            failed_urls.append(url)
+
+    with open(f"/tmp/clien_{input_date}_{car_name}.json", "w", encoding="utf-8") as f:
+        json.dump(results, f, ensure_ascii=False, indent=4)
+
+    s3.upload_file(
+        f"/tmp/clien_{input_date}_{car_name}.json",
+        BUCKET_NAME,
+        WRITE_OBJECT_KEY,
+    )
+
+    if len(failed_urls) > 0:
+        with open(f"/tmp/clien_{input_date}_{car_name}_failed_urls.csv", "w") as f:
+            for url in failed_urls:
+                f.write(url + "\n")
 
         s3.upload_file(
-            f"/tmp/clien_{input_date}_{car_name}.json",
+            f"/tmp/clien_{input_date}_{car_name}_failed_urls.csv",
             BUCKET_NAME,
-            WRITE_OBJECT_KEY,
+            f"{car_name}/{year}/{month}/{day}/failed/clien_target_urls.csv",
         )
 
-        return {"statusCode": 200}
+        return {
+            "statusCode": 200,
+            "body": json.dumps({"failed": failed_urls}),
+        }
 
-    except Exception as e:
-        return {"statusCode": 500, "body": json.dumps(str(e))}
+    return {"statusCode": 200}

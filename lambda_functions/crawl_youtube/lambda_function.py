@@ -10,71 +10,72 @@ BATCH_SIZE = 10
 
 
 def lambda_handler(event, context):
-    try:
-        API_KEY = os.environ.get("YOUTUBE_API_KEY")
+    API_KEY = os.environ.get("YOUTUBE_API_KEY")
 
-        input_date = event["input_date"]
-        car_name = event["car_name"]
-        page = event["page"]
-        if not page:
-            page = 1
+    input_date = event["input_date"]
+    car_name = event["car_name"]
+    page = event["page"]
+    if not page:
+        page = 1
 
-        if not input_date or not car_name:
-            return {
-                "statusCode": 400,
-                "body": json.dumps("input_date and car_name are required"),
-            }
+    if not input_date or not car_name:
+        return {
+            "statusCode": 400,
+            "body": json.dumps("input_date and car_name are required"),
+        }
 
-        if not API_KEY:
-            return {
-                "statusCode": 400,
-                "body": json.dumps("YOUTUBE_API_KEY is required"),
-            }
+    if not API_KEY:
+        return {
+            "statusCode": 400,
+            "body": json.dumps("YOUTUBE_API_KEY is required"),
+        }
 
-        youtube = build("youtube", "v3", developerKey=API_KEY)
+    youtube = build("youtube", "v3", developerKey=API_KEY)
 
-        year, month, day = input_date.split("-")
+    year, month, day = input_date.split("-")
 
-        BUCKET_NAME = "the-all-new-bucket"
-        READ_OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/youtube_target_videos.csv"
-        WRITE_OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/youtube_raw_{page}.json"
+    BUCKET_NAME = "the-all-new-bucket"
+    READ_OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/youtube_target_videos.csv"
+    WRITE_OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/youtube_raw_{page}.json"
 
-        s3 = boto3.client("s3")
-        s3.download_file(
-            BUCKET_NAME,
-            READ_OBJECT_KEY,
-            f"/tmp/youtube_{input_date}_{car_name}.csv",
-        )
+    s3 = boto3.client("s3")
+    s3.download_file(
+        BUCKET_NAME,
+        READ_OBJECT_KEY,
+        f"/tmp/youtube_{input_date}_{car_name}.csv",
+    )
 
-        with open(f"/tmp/youtube_{input_date}_{car_name}.csv", "r") as f:
-            video_ids = f.readlines()
-            video_ids = [video_id.strip() for video_id in video_ids]
+    with open(f"/tmp/youtube_{input_date}_{car_name}.csv", "r") as f:
+        video_ids = f.readlines()
+        video_ids = [video_id.strip() for video_id in video_ids]
 
-        video_ids = video_ids[page - 1 :: BATCH_SIZE]
+    video_ids = video_ids[page - 1 :: BATCH_SIZE]
 
-        stats_response = (
-            youtube.videos()
-            .list(part="statistics,snippet", id=",".join(video_ids))
-            .execute()
-        )
+    stats_response = (
+        youtube.videos()
+        .list(part="statistics,snippet", id=",".join(video_ids))
+        .execute()
+    )
 
-        # 시간 변환 함수 (UTC → timestamp)
-        def convert_to_timestamp(date_str):
-            try:
-                dt = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
-                return int(time.mktime(dt.timetuple()))
-            except:
-                return None
+    # 시간 변환 함수 (UTC → timestamp)
+    def convert_to_timestamp(date_str):
+        try:
+            dt = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
+            return int(time.mktime(dt.timetuple()))
+        except:
+            return None
 
-        # 영상 데이터 저장 리스트
-        video_data_list = []
+    # 영상 데이터 저장 리스트
+    video_data_list = []
+    failed = []
 
-        # 댓글 다운로드 객체 생성
-        downloader = YoutubeCommentDownloader()
+    # 댓글 다운로드 객체 생성
+    downloader = YoutubeCommentDownloader()
 
-        print("=====START=====")
+    print("=====START=====")
 
-        for item in stats_response["items"]:
+    for item in stats_response["items"]:
+        try:
             video_id = item["id"]
             statistics = item.get("statistics", {})
             snippet = item.get("snippet", {})
@@ -98,48 +99,61 @@ def lambda_handler(event, context):
             }
 
             # 댓글 가져오기
-            try:
-                comments = downloader.get_comments_from_url(
-                    f"https://www.youtube.com/watch?v={video_id}",
-                    sort_by=SORT_BY_POPULAR,
+
+            comments = downloader.get_comments_from_url(
+                f"https://www.youtube.com/watch?v={video_id}",
+                sort_by=SORT_BY_POPULAR,
+            )
+
+            for comment in comments:
+                video_info["comments"].append(
+                    {
+                        "comment_nickname": comment.get("author", ""),
+                        "comment_content": comment.get("text", ""),
+                        "comment_like_count": int(comment.get("votes", "0")),
+                        "comment_dislike_count": 0,  # YouTube API에서 싫어요 수 제공 안 함
+                        "comment_date": convert_to_timestamp(
+                            datetime.utcfromtimestamp(comment["time_parsed"]).strftime(
+                                "%Y-%m-%dT%H:%M:%SZ"
+                            )
+                        ),
+                    }
                 )
-
-                for comment in comments:
-                    video_info["comments"].append(
-                        {
-                            "comment_nickname": comment.get("author", ""),
-                            "comment_content": comment.get("text", ""),
-                            "comment_like_count": int(comment.get("votes", "0")),
-                            "comment_dislike_count": 0,  # YouTube API에서 싫어요 수 제공 안 함
-                            "comment_date": convert_to_timestamp(
-                                datetime.utcfromtimestamp(
-                                    comment["time_parsed"]
-                                ).strftime("%Y-%m-%dT%H:%M:%SZ")
-                            ),
-                        }
-                    )
-
-            except Exception as e:
-                print(f"댓글 로드 실패: {video_id} - {e}")
 
             # 최종 데이터 리스트에 추가
             video_data_list.append(video_info)
             print(f"{video_id} Success")
+        except:
+            print(f"{video_id} Failed")
+            failed.append(video_id)
 
-        # JSON 파일 저장 (YYYY-MM.json)
-        with open(
-            f"/tmp/youtube_{input_date}_{car_name}_{page}.json", "w", encoding="utf-8"
-        ) as jsonfile:
-            json.dump(video_data_list, jsonfile, ensure_ascii=False, indent=4)
+    # JSON 파일 저장 (YYYY-MM.json)
+    with open(
+        f"/tmp/youtube_{input_date}_{car_name}_{page}.json", "w", encoding="utf-8"
+    ) as jsonfile:
+        json.dump(video_data_list, jsonfile, ensure_ascii=False, indent=4)
+
+    s3.upload_file(
+        f"/tmp/youtube_{input_date}_{car_name}_{page}.json",
+        BUCKET_NAME,
+        WRITE_OBJECT_KEY,
+    )
+    print(f"{WRITE_OBJECT_KEY} 업로드 완료")
+
+    if len(failed) > 0:
+        with open(f"/tmp/youtube_{input_date}_{car_name}_failed_videos.csv", "w") as f:
+            for video_id in failed:
+                f.write(video_id + "\n")
 
         s3.upload_file(
-            f"/tmp/youtube_{input_date}_{car_name}_{page}.json",
+            f"/tmp/youtube_{input_date}_{car_name}_failed_videos.csv",
             BUCKET_NAME,
-            WRITE_OBJECT_KEY,
+            f"{car_name}/{year}/{month}/{day}/failed/youtube_target_videos.csv",
         )
-        print(f"{WRITE_OBJECT_KEY} 업로드 완료")
 
-        return {"statusCode": 200}
+        return {
+            "statusCode": 200,
+            "body": json.dumps({"failed": failed}),
+        }
 
-    except Exception as e:
-        return {"statusCode": 500, "body": json.dumps(str(e))}
+    return {"statusCode": 200}

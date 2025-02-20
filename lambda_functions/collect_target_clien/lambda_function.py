@@ -17,7 +17,7 @@ def lambda_handler(event, context):
 
         input_date = event["input_date"]
         car_name = event["car_name"]
-        search_keywords = event["search_keywords"]
+        search_keywords = event["search_keywords"].split(",")
 
         if not input_date or not car_name or not search_keywords:
             return {
