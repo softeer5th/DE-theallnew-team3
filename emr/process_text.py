@@ -8,18 +8,22 @@ from pyspark.sql.types import StringType
 
 BUCKET_NAME = "the-all-new-bucket"
 
-def convert_timestamp_to_kst_udf(timestamp):
-    # UTC 기준 datetime 객체 생성
-    utc_time = datetime.fromtimestamp(timestamp, tz=timezone.utc)
-    
-    # KST (UTC+9)로 변환
-    kst_time = utc_time + timedelta(hours=9)
-    
-    # 원하는 형식 (YYYY/MM/DD)으로 출력
-    return kst_time.strftime("%Y-%m-%d")
+def get_timestamp(year,month,day):
+    # 한국 시간(KST) 기준의 타임존 설정
+    KST = timezone(timedelta(hours=9))
+    year = int(year)
+    month = int(month)
+    day = int(day)
 
-# PySpark UDF로 등록
-convert_timestamp_to_kst = udf(convert_timestamp_to_kst_udf, StringType())
+    # 해당 날짜의 시작(00:00:00)과 끝(23:59:59)을 KST 기준으로 설정
+    start_dt = datetime(year, month, day, 0, 0, 0, tzinfo=KST)
+    end_dt = datetime(year, month, day, 23, 59, 59, tzinfo=KST)
+
+    # UTC 타임스탬프로 변환
+    start_timestamp = int(start_dt.timestamp())  # 초 단위 정수 변환
+    end_timestamp = int(end_dt.timestamp())
+
+    return start_timestamp, end_timestamp    
 
 def save_missing_post_data(df, data_type, car_name, year, month, day):
     """
@@ -250,15 +254,15 @@ def process_text(year, month, day, car_name):
     )
 
     # 새로 생긴 데이터만 남기기
-    comment_df = comment_df.withColumn("kst_date", convert_timestamp_to_kst(col("timestamp")))
-    post_df = post_df.withColumn("kst_date",convert_timestamp_to_kst(col("timestamp")))
+    start_timestamp, end_timestamp = get_timestamp(year,month, day)
     
     comment_df = comment_df.filter(
-        convert_timestamp_to_kst(col("timestamp")) == f"{year}-{month}-{day}"
+        (start_timestamp<=col("timestamp"))& (col("timestamp")<=end_timestamp)
     )   
     post_df = post_df.filter(
-        convert_timestamp_to_kst(col("timestamp")) == f"{year}-{month}-{day}"
+        (start_timestamp<=col("timestamp"))& (col("timestamp")<=end_timestamp)
     )   
+    
     
     # sentence 추출
     post_sentence_df = explode_post(post_df)
