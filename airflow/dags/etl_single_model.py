@@ -12,7 +12,7 @@ from airflow.providers.amazon.aws.operators.lambda_function import (
 )
 from datetime import datetime, timedelta
 from constant.car_data import CAR_TYPE_PARAM, CARS
-from common.slack import slack_info_message
+from common.slack import slack_info_message, slack_handle_task_failure
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +123,7 @@ with DAG(
     description="ETL: single model",
     tags=["etl", "single"],
     params={"car_type": CAR_TYPE_PARAM},
+    on_failure_callback=slack_handle_task_failure,
 ) as dag:
     target_car = PythonOperator(
         task_id="get_target_car",
