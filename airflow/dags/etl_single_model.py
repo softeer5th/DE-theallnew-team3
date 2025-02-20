@@ -117,13 +117,17 @@ def get_params(**kwargs):
     return CARS[params["car_type"]]
 
 
+default_args = {
+    "on_failure_callback": slack_handle_task_failure,
+}
+
 with DAG(
     "etl.single_model",
     schedule=None,
     description="ETL: single model",
     tags=["etl", "single"],
     params={"car_type": CAR_TYPE_PARAM},
-    on_failure_callback=slack_handle_task_failure,
+    default_args=default_args,
 ) as dag:
     target_car = PythonOperator(
         task_id="get_target_car",
@@ -133,7 +137,7 @@ with DAG(
     PAYLOAD_JSON = {
         "input_date": "{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%Y') }}-{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%m') }}-{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%d') }}",
         "car_name": "{{ task_instance.xcom_pull(task_ids='get_target_car')['car_name'] }}",
-        "search_keyword": "{{ task_instance.xcom_pull(task_ids='get_target_car')['alias'][0] }}",
+        "search_keywords": "{{ task_instance.xcom_pull(task_ids='get_target_car')['alias'] }}",
     }
     PAYLOAD = json.dumps(PAYLOAD_JSON)
 
@@ -157,6 +161,7 @@ with DAG(
     crawl_youtube = LambdaInvokeFunctionOperator.partial(
         task_id="crawl_youtube",
         function_name="crawl_youtube",
+        botocore_config={"read_timeout": 600, "connect_timeout": 600},
     ).expand(
         payload=[
             json.dumps({**PAYLOAD_JSON, "page": i}) for i in range(1, BATCH_SIZE + 1)
@@ -216,7 +221,9 @@ with DAG(
     )
 
     invoke_lambda = LambdaInvokeFunctionOperator.partial(
-        task_id="invoke_lambda", function_name="classify-sentence"
+        task_id="invoke_lambda",
+        function_name="classify-sentence",
+        botocore_config={"read_timeout": 600, "connect_timeout": 600},
     ).expand(
         payload=generate_payload.output.map(lambda x: json.dumps(x, ensure_ascii=False))
     )
