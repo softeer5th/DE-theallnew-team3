@@ -25,6 +25,8 @@ RUN export $(grep -v '^#' .env | xargs) && \
     --conn-password $AWS_SECRET_ACCESS_KEY \
     --conn-extra '{"region_name": "ap-northeast-2"}'
 
+
+
 # AWS Redshift Connection
 RUN airflow connections delete redshift_default
 RUN export $(grep -v '^#' .env | xargs) && \
@@ -36,10 +38,10 @@ RUN export $(grep -v '^#' .env | xargs) && \
     --conn-login $REDSHIFT_USER \
     --conn-password $REDSHIFT_PASSWORD \
     --conn-extra '{ \
-                    "is_serverless": true, \
-                    "serverless_work_group": $REDSHIFT_SERVERLESS_WG, \
-                    "role_arn": $REDSHIFT_IAM_ROLE \
-                    }'
+                    "is_serverless":true, \
+                    "serverless_work_group":"'"$REDSHIFT_SERVERLESS_WG"'", \
+                    "role_arn":"'"$REDSHIFT_IAM_ROLE"'" \
+                }'
 
 # Airflow user
 RUN export $(grep -v '^#' .env | xargs) && \
