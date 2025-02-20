@@ -17,13 +17,13 @@ def lambda_handler(event, context):
 
         input_date = event["input_date"]
         car_name = event["car_name"]
-        search_keyword = event["search_keyword"]
+        search_keywords = event["search_keywords"]
 
-        if not input_date or not car_name or not search_keyword:
+        if not input_date or not car_name or not search_keywords:
             return {
                 "statusCode": 400,
                 "body": json.dumps(
-                    "input_date and car_name and search_keyword are required"
+                    "input_date and car_name and search_keywords are required"
                 ),
             }
 
@@ -44,22 +44,28 @@ def lambda_handler(event, context):
 
         youtube = build("youtube", "v3", developerKey=API_KEY)
 
-        response = (
-            youtube.search()
-            .list(
-                q=search_keyword,
-                part="snippet",
-                maxResults=50,
-                order="viewCount",
-                type="video",
-                publishedAfter=published_after,
-                publishedBefore=published_before,
-                regionCode="KR",
-            )
-            .execute()
-        )
+        video_ids = []
 
-        video_ids = [item["id"]["videoId"] for item in response["items"]]
+        for search_keyword in search_keywords:
+            response = (
+                youtube.search()
+                .list(
+                    q=search_keyword,
+                    part="snippet",
+                    maxResults=50,
+                    order="viewCount",
+                    type="video",
+                    publishedAfter=published_after,
+                    publishedBefore=published_before,
+                    regionCode="KR",
+                )
+                .execute()
+            )
+
+            video_ids.extend([item["id"]["videoId"] for item in response["items"]])
+
+        # 중복 제거
+        video_ids = list(set(video_ids))
 
         with open(f"/tmp/youtube_{input_date}_{car_name}.csv", "w") as f:
             for video_id in video_ids:

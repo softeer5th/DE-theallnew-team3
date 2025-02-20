@@ -17,13 +17,13 @@ def lambda_handler(event, context):
 
         input_date = event["input_date"]
         car_name = event["car_name"]
-        search_keyword = event["search_keyword"]
+        search_keywords = event["search_keywords"]
 
-        if not input_date or not car_name or not search_keyword:
+        if not input_date or not car_name or not search_keywords:
             return {
                 "statusCode": 400,
                 "body": json.dumps(
-                    "input_date and car_name and search_keyword are required"
+                    "input_date and car_name and search_keywords are required"
                 ),
             }
 
@@ -33,35 +33,40 @@ def lambda_handler(event, context):
         BUCKET_NAME = "the-all-new-bucket"
         OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/clien_target_urls.csv"
 
-        params = {
-            "q": search_keyword,
-            "p": 1,
-            "sort": "recency",
-            "boardCd": "",
-            "isBoard": "false",
-        }
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"
-        }
         urls = []
-        for i in range(50):
-            params["p"] = i
-            html = requests.get(TARGET_URL, params=params, headers=headers)
-            soup = BeautifulSoup(html.content, "html.parser")
+        for search_keyword in search_keywords:
+            params = {
+                "q": search_keyword,
+                "p": 1,
+                "sort": "recency",
+                "boardCd": "",
+                "isBoard": "false",
+            }
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"
+            }
 
-            search_result = soup.find("div", "total_search")
-            posts = search_result.find_all("div", "list_item symph_row jirum")
-            for post in posts:
-                timestamp = post.find("span", "timestamp").text  # 게시물 날짜 추출
-                post_date = timestamp[:10]  # "YYYY-MM-DD"
+            for i in range(50):
+                params["p"] = i
+                html = requests.get(TARGET_URL, params=params, headers=headers)
+                soup = BeautifulSoup(html.content, "html.parser")
 
-                if start_date <= post_date <= input_date:
-                    urls.append("https://www.clien.net" + post.find("a")["href"])
+                search_result = soup.find("div", "total_search")
+                posts = search_result.find_all("div", "list_item symph_row jirum")
+                for post in posts:
+                    timestamp = post.find("span", "timestamp").text  # 게시물 날짜 추출
+                    post_date = timestamp[:10]  # "YYYY-MM-DD"
 
-                # 수집 대상 날짜보다 이전 날짜가 나오면 중단
-                if post_date < start_date:
-                    # print("더 이상 수집할 데이터 없음. 종료.")
-                    break
+                    if start_date <= post_date <= input_date:
+                        urls.append("https://www.clien.net" + post.find("a")["href"])
+
+                    # 수집 대상 날짜보다 이전 날짜가 나오면 중단
+                    if post_date < start_date:
+                        # print("더 이상 수집할 데이터 없음. 종료.")
+                        break
+
+        urls = list(set(urls))
+
         with open(
             f"/tmp/clien_{input_date}_{car_name}.csv", "w", encoding="utf-8"
         ) as f:
