@@ -4,9 +4,45 @@ from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, explode, lit, split, udf
 from pyspark.sql.functions import lower, regexp_replace, trim, length
 from pyspark.sql import functions as F
-from pyspark.sql.types import StringType
+from pyspark.sql.types import (
+    StringType,
+    StructType,
+    StructField,
+    ArrayType,
+    IntegerType,
+)
 
 BUCKET_NAME = "the-all-new-bucket"
+
+INPUT_SCHEMA = StructType(
+    [
+        StructField("car_name", StringType()),
+        StructField("source", StringType()),
+        StructField("id", StringType()),
+        StructField("title", StringType()),
+        StructField("nickname", StringType()),
+        StructField("article", StringType()),
+        StructField("view_count", IntegerType()),
+        StructField("like_count", IntegerType()),
+        StructField("dislike_count", IntegerType()),
+        StructField("date", IntegerType()),
+        StructField("comment_count", IntegerType()),
+        StructField(
+            "comments",
+            ArrayType(
+                StructType(
+                    [
+                        StructField("comment_content", StringType()),
+                        StructField("comment_nickname", StringType()),
+                        StructField("comment_date", IntegerType()),
+                        StructField("comment_like_count", IntegerType()),
+                        StructField("comment_dislike_count", IntegerType()),
+                    ]
+                )
+            ),
+        ),
+    ]
+)
 
 
 def get_timestamp(year, month, day):
@@ -236,14 +272,17 @@ def process_text(year, month, day, car_name):
     youtube_raw_df = spark.read.json(
         f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/youtube_raw_*.json",
         multiLine=True,
+        schema=INPUT_SCHEMA,
     )
     bobae_raw_df = spark.read.json(
         f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/bobae_raw.json",
         multiLine=True,
+        schema=INPUT_SCHEMA,
     )
     clien_raw_df = spark.read.json(
         f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/clien_raw.json",
         multiLine=True,
+        schema=INPUT_SCHEMA,
     )
 
     # raw 데이터를 post, comment로 분리하기
