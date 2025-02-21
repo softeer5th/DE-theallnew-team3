@@ -3,6 +3,7 @@ import logging
 import json
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+from airflow.utils.task_group import TaskGroup
 from airflow.providers.amazon.aws.operators.emr import EmrAddStepsOperator
 from airflow.providers.amazon.aws.sensors.emr import EmrStepSensor
 from airflow.providers.amazon.aws.operators.emr import EmrCreateJobFlowOperator
@@ -12,68 +13,25 @@ from airflow.providers.amazon.aws.operators.lambda_function import (
 )
 from datetime import datetime, timedelta
 from constant.car_data import CAR_TYPE_PARAM, CARS
-from common.slack import slack_info_message, slack_handle_task_failure
+from common.slack import (
+    slack_info_message,
+    slack_handle_task_failure,
+    slack_warning_message,
+)
+from constant.emr_config import JOB_FLOW_OVERRIDES, generate_step
 
 logger = logging.getLogger(__name__)
 
 
-def generate_step(year, month, day, car_name):
-    return [
-        {
-            "Name": f"Process {car_name} at {year}-{month}-{day}",
-            "ActionOnFailure": "TERMINATE_CLUSTER",
-            "HadoopJarStep": {
-                "Jar": "command-runner.jar",
-                "Args": [
-                    "spark-submit",
-                    "--deploy-mode",
-                    "cluster",
-                    "s3://the-all-new-bucket/py/process_text.py",
-                    "--year",
-                    year,
-                    "--month",
-                    month,
-                    "--day",
-                    day,
-                    "--car_name",
-                    car_name,
-                ],
-            },
-        }
-    ]
+@task.branch()
+def branch_failed(target_task_id, on_success_task_ids, on_failure_task_ids, **kwargs):
+    ti = kwargs["ti"]
+    lambda_return_value = ti.xcom_pull(task_ids=target_task_id)["return_value"]
+    print(lambda_return_value)
 
-
-JOB_FLOW_OVERRIDES = {
-    "Name": "EMR Test",
-    "ReleaseLabel": "emr-7.7.0",
-    "Applications": [{"Name": "Spark"}, {"Name": "Hadoop"}],
-    "Instances": {
-        "InstanceGroups": [
-            {
-                "Name": "Master nodes",
-                "InstanceType": "m4.large",
-                "Market": "ON_DEMAND",
-                "InstanceRole": "MASTER",
-                "InstanceCount": 1,
-            },
-            {
-                "Name": "Worker nodes",
-                "InstanceType": "m4.large",
-                "Market": "ON_DEMAND",
-                "InstanceRole": "CORE",
-                "InstanceCount": 2,
-            },
-        ],
-        "Ec2SubnetId": "subnet-06f1e9f77ff80e755",
-        "KeepJobFlowAliveWhenNoSteps": False,
-        "TerminationProtected": False,
-    },
-    "LogUri": "s3://the-all-new-logs/elasticmapreduce",
-    "Tags": [{"Key": "for-use-with-amazon-emr-managed-policies", "Value": "true"}],
-    "VisibleToAllUsers": True,
-    "JobFlowRole": "DE_3_EMR_Instance_Role",
-    "ServiceRole": "DE_3_EMR_Service_Role",
-}
+    if lambda_return_value.get("failed"):
+        return on_failure_task_ids
+    return on_success_task_ids
 
 
 @task
@@ -96,7 +54,6 @@ def generate_payload(**kwargs):
     parquet_files = [f for f in files if f.endswith(".parquet")]
     parquet_files = [f.split("/")[-1] for f in parquet_files]
 
-    # 이전달 데이터 수집하기
     cur_datetime = datetime.strptime(ds, "%Y-%m-%d")
     prev_datetime = cur_datetime - timedelta(days=1)
 
@@ -115,6 +72,24 @@ def generate_payload(**kwargs):
 def get_params(**kwargs):
     params = kwargs["params"]
     return CARS[params["car_type"]]
+
+
+@task.branch
+def branch_crawl(source: str, ti):
+    result = ti.xcom_pull(task_ids=f"{source}.crawl")
+    result = json.loads(result)
+    if result.get("failed"):
+        return f"{source}.recover"
+    return None
+
+
+@task.branch
+def branch_recover(source: str, ti):
+    result = ti.xcom_pull(task_ids=f"{source}.recover")
+    result = json.loads(result)
+    if result.get("failed"):
+        return f"{source}.send_warning"
+    return None
 
 
 default_args = {
@@ -141,43 +116,90 @@ with DAG(
     }
     PAYLOAD = json.dumps(PAYLOAD_JSON)
 
-    collect_target_video = LambdaInvokeFunctionOperator(
-        task_id="collect_target_video",
-        function_name="collect_target_video",
-        payload=PAYLOAD,
-    )
-    collect_target_bobae = LambdaInvokeFunctionOperator(
-        task_id="collect_target_bobae",
-        function_name="collect_target_bobae",
-        payload=PAYLOAD,
-    )
-    collect_target_clien = LambdaInvokeFunctionOperator(
-        task_id="collect_target_clien",
-        function_name="collect_target_clien",
-        payload=PAYLOAD,
-    )
+    with TaskGroup(group_id="crawl_youtube_task_group") as crawl_youtube_task_group:
+        collect_target_video = LambdaInvokeFunctionOperator(
+            task_id="collect_target_video",
+            function_name="collect_target_video",
+            payload=PAYLOAD,
+        )
 
-    BATCH_SIZE = 10
-    crawl_youtube = LambdaInvokeFunctionOperator.partial(
-        task_id="crawl_youtube",
-        function_name="crawl_youtube",
-        botocore_config={"read_timeout": 600, "connect_timeout": 600},
-    ).expand(
-        payload=[
-            json.dumps({**PAYLOAD_JSON, "page": i}) for i in range(1, BATCH_SIZE + 1)
-        ]
-    )
+        BATCH_SIZE = 10
+        crawl_youtube = LambdaInvokeFunctionOperator.partial(
+            task_id="crawl_youtube",
+            function_name="crawl_youtube",
+            botocore_config={"read_timeout": 600, "connect_timeout": 600},
+        ).expand(
+            payload=[
+                json.dumps({**PAYLOAD_JSON, "page": i})
+                for i in range(1, BATCH_SIZE + 1)
+            ]
+        )
+        collect_target_video >> crawl_youtube
 
-    crawl_bobae = LambdaInvokeFunctionOperator(
-        task_id="crawl_bobae",
-        function_name="crawl_bobae",
-        payload=PAYLOAD,
-    )
-    crawl_clien = LambdaInvokeFunctionOperator(
-        task_id="crawl_clien",
-        function_name="crawl_clien",
-        payload=PAYLOAD,
-    )
+    with TaskGroup(
+        group_id="clien",
+    ) as crawl_clien_task_group:
+        clien_collect = LambdaInvokeFunctionOperator(
+            task_id="collect",
+            function_name="collect_target_clien",
+            payload=PAYLOAD,
+        )
+        clien_crawl = LambdaInvokeFunctionOperator(
+            task_id="crawl",
+            function_name="crawl_clien",
+            payload=PAYLOAD,
+        )
+
+        clien_branch_crawl = branch_crawl(source="clien")
+        clien_branch_recover = branch_recover(source="clien")
+
+        clien_send_warning = slack_warning_message(
+            message="`clien`에서 실패한 URL이 있습니다.",
+            dag=dag,
+            task_id="send_warning",
+        )
+
+        clien_recover = LambdaInvokeFunctionOperator(
+            task_id="recover",
+            function_name="crawl_clien_recovery",
+            payload=PAYLOAD,
+        )
+
+        clien_collect >> clien_crawl >> clien_branch_crawl
+        clien_branch_crawl >> clien_recover
+        clien_recover >> clien_branch_recover
+        clien_branch_recover >> clien_send_warning
+
+    with TaskGroup(group_id="bobae") as crawl_bobae_task_group:
+        bobae_collect = LambdaInvokeFunctionOperator(
+            task_id="collect",
+            function_name="collect_target_bobae",
+            payload=PAYLOAD,
+        )
+        bobae_crawl = LambdaInvokeFunctionOperator(
+            task_id="crawl",
+            function_name="crawl_bobae",
+            payload=PAYLOAD,
+        )
+
+        bobae_branch_crawl = branch_crawl(source="bobae")
+        bobae_branch_recover = branch_recover(source="bobae")
+
+        bobae_send_warning = slack_warning_message(
+            message="`bobae`에서 실패한 URL이 있습니다.",
+            dag=dag,
+            task_id="send_warning",
+        )
+        bobae_recover = LambdaInvokeFunctionOperator(
+            task_id="recover",
+            function_name="crawl_bobae_recovery",
+            payload=PAYLOAD,
+        )
+
+        bobae_collect >> bobae_crawl >> bobae_branch_crawl
+        bobae_branch_crawl >> bobae_recover
+        bobae_recover >> bobae_branch_recover
+        bobae_branch_recover >> bobae_send_warning
 
     send_crawl_all_success_message = slack_info_message(
         message="크롤링 성공했어요!!!",
@@ -190,6 +212,7 @@ with DAG(
         job_flow_overrides=JOB_FLOW_OVERRIDES,
         trigger_rule="one_success",
     )
+
     add_steps = EmrAddStepsOperator(
         task_id="emr_add_steps",
         job_flow_id=create_emr_cluster.output,
@@ -233,18 +256,22 @@ with DAG(
     )
 
     target_car >> [
-        collect_target_video,
-        collect_target_bobae,
-        collect_target_clien,
+        crawl_youtube_task_group,
+        crawl_bobae_task_group,
+        crawl_clien_task_group,
     ]
 
-    collect_target_video >> crawl_youtube
-    collect_target_bobae >> crawl_bobae
-    collect_target_clien >> crawl_clien
+    [
+        crawl_youtube_task_group,
+        crawl_bobae_task_group,
+        crawl_clien_task_group,
+    ] >> send_crawl_all_success_message
 
-    [crawl_youtube, crawl_bobae, crawl_clien] >> send_crawl_all_success_message
-
-    [crawl_youtube, crawl_bobae, crawl_clien] >> create_emr_cluster
+    [
+        crawl_youtube_task_group,
+        crawl_bobae_task_group,
+        crawl_clien_task_group,
+    ] >> create_emr_cluster
 
     (
         create_emr_cluster
