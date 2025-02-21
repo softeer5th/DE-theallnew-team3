@@ -79,13 +79,10 @@ def lambda_handler(event, context):
     object_key = event.get("object_key")
 
     if not input_date or not car_name:
-        return {
-            "statusCode": 400,
-            "body": json.dumps("input_date and car_name are required"),
-        }
+        raise Exception("input_date and car_name are required")
 
     if not API_KEY:
-        return {"statusCode": 400, "body": json.dumps("OPENAI_API_KEY is required")}
+        raise Exception("OPENAI_API_KEY is required")
 
     year, month, day = input_date.split("-")
 
@@ -127,5 +124,6 @@ def lambda_handler(event, context):
     if len(failed) > 0:
         failed_df = pd.DataFrame(failed)
         wr.s3.to_parquet(df=failed_df, path=f"s3://{BUCKET_NAME}/{FAILED_OBJECT_KEY}")
+        return {"statusCode": 200, "failed": failed}
 
     return {"statusCode": 200}

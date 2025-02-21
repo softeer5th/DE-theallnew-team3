@@ -11,11 +11,8 @@ def lambda_handler(event, context):
     input_date = event["input_date"]
     car_name = event["car_name"]
 
-    if input_date == "" or car_name == "":
-        return {
-            "statusCode": 400,
-            "body": json.dumps("input_date and car_name are required"),
-        }
+    if not input_date or not car_name:
+        raise Exception("input_date and car_name are required")
 
     year, month, day = input_date.split("-")
 
@@ -171,7 +168,7 @@ def lambda_handler(event, context):
 
         return {
             "statusCode": 200,
-            "body": json.dumps({"failed": failed_links}),
+            "failed": failed_links,
         }
 
     return {"statusCode": 200}

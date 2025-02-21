@@ -19,16 +19,10 @@ def lambda_handler(event, context):
         page = 1
 
     if not input_date or not car_name:
-        return {
-            "statusCode": 400,
-            "body": json.dumps("input_date and car_name are required"),
-        }
+        raise Exception("input_date and car_name are required")
 
     if not API_KEY:
-        return {
-            "statusCode": 400,
-            "body": json.dumps("YOUTUBE_API_KEY is required"),
-        }
+        raise Exception("YOUTUBE_API_KEY is required")
 
     youtube = build("youtube", "v3", developerKey=API_KEY)
 
@@ -153,7 +147,7 @@ def lambda_handler(event, context):
 
         return {
             "statusCode": 200,
-            "body": json.dumps({"failed": failed}),
+            "failed": failed,
         }
 
     return {"statusCode": 200}
