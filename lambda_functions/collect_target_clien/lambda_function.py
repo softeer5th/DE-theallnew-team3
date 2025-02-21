@@ -31,7 +31,6 @@ def lambda_handler(event, context):
     for search_keyword in search_keywords:
         params = {
             "q": search_keyword,
-            "p": 1,
             "sort": "recency",
             "boardCd": "",
             "isBoard": "false",
@@ -41,7 +40,8 @@ def lambda_handler(event, context):
         }
 
         for i in range(50):
-            params["p"] = i
+            if i > 0:
+                params["p"] = i
             html = requests.get(TARGET_URL, params=params, headers=headers)
             soup = BeautifulSoup(html.content, "html.parser")
 
