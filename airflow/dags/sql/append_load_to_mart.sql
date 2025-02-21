@@ -15,7 +15,7 @@ SELECT post_id,
     dislike_cnt,
     view_cnt,
     comment_cnt,
-    '2025-02-20' as ingestion_date
+    CURRENT_DATE as ingestion_date
 FROM staging.tb_posts;
 
 INSERT INTO mart.tb_comments_metric(
@@ -33,7 +33,7 @@ SELECT p.post_id,
     p.source,
     c.like_cnt,
     c.dislike_cnt,
-    '2025-02-20' as ingestion_date
+    CURRENT_DATE as ingestion_date
 FROM staging.tb_comments as c
     JOIN staging.tb_posts as p
         ON p.post_uuid = c.post_uuid;
@@ -62,7 +62,7 @@ SELECT p.post_id,
     k.category,
     k.keyword,
     k.sentiment_score,
-    '{{ ds.year }}-{{ ds.month }}-{{ ds.day }}' as ingestion_date
+    CURRENT_DATE as ingestion_date
 FROM staging.tb_sentences as s
     JOIN staging.tb_keywords as k
         ON s.sentence_uuid = k.sentence_uuid
