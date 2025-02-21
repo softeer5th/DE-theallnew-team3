@@ -122,7 +122,7 @@ def save_missing_comment_data(df, data_type, car_name, year, month, day):
         col("comment_uuid").isNull()
         | col("author").isNull()
         | col("content").isNull()
-        | col("timestamp").isNull()
+        | col("create_timestamp").isNull()
         | col("like_cnt").isNull()
         | (col("like_cnt") < 0)
         | col("dislike_cnt").isNull()
@@ -143,7 +143,7 @@ def save_missing_comment_data(df, data_type, car_name, year, month, day):
         col("comment_uuid").isNotNull()
         & col("author").isNotNull()
         & col("content").isNotNull()
-        & col("timestamp").isNotNull()
+        & col("create_timestamp").isNotNull()
         & col("like_cnt").isNotNull()
         & col("dislike_cnt").isNotNull()
     )
@@ -312,10 +312,12 @@ def process_text(year, month, day, car_name):
     start_timestamp, end_timestamp = get_timestamp(year, month, day)
 
     comment_df = comment_df.filter(
-        (start_timestamp <= col("timestamp")) & (col("timestamp") <= end_timestamp)
+        (start_timestamp <= col("create_timestamp"))
+        & (col("create_timestamp") <= end_timestamp)
     )
     post_df = post_df.filter(
-        (start_timestamp <= col("timestamp")) & (col("timestamp") <= end_timestamp)
+        (start_timestamp <= col("create_timestamp"))
+        & (col("create_timestamp") <= end_timestamp)
     )
 
     # sentence 추출
