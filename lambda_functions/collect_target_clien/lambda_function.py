@@ -25,7 +25,7 @@ def lambda_handler(event, context):
     start_date = get_before_day(input_date)
 
     BUCKET_NAME = "the-all-new-bucket"
-    OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/clien_target_urls.csv"
+    OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/target/clien.csv"
 
     urls = []
     for search_keyword in search_keywords:
@@ -42,7 +42,9 @@ def lambda_handler(event, context):
         for i in range(50):
             if i > 0:
                 params["p"] = i
-            html = requests.get(TARGET_URL, params=params, headers=headers)
+            html = requests.get(
+                TARGET_URL, params=params, headers=headers, allow_redirects=False
+            )
             soup = BeautifulSoup(html.content, "html.parser")
 
             search_result = soup.find("div", "total_search")

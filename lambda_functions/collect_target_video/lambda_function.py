@@ -27,7 +27,7 @@ def lambda_handler(event, context):
     year, month, day = input_date.split("-")
 
     BUCKET_NAME = "the-all-new-bucket"
-    OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/youtube_target_videos.csv"
+    OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/target/youtube.csv"
 
     published_after = f"{target_date}T00:00:00Z"
     published_before = f"{input_date}T23:59:59Z"

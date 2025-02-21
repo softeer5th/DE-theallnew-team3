@@ -63,7 +63,7 @@ def get_timestamp(year, month, day):
     return start_timestamp, end_timestamp
 
 
-def save_missing_post_data(df, data_type, car_name, year, month, day):
+def save_missing_post_data(df, car_name, year, month, day):
     """
     결측치가 있는 데이터를 별도로 저장하는 함수
     """
@@ -89,11 +89,8 @@ def save_missing_post_data(df, data_type, car_name, year, month, day):
     if missing_data_df.count() > 0:
         # 누락된 데이터가 있을 경우, 별도의 파일로 저장
         missing_data_df.write.mode("overwrite").parquet(
-            f"s3a://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/missing_data/{data_type}_post_missing"
+            f"s3a://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/failed_df/post"
         )
-        print(f"Missing data for {data_type} saved.")
-    else:
-        print(f"No missing data for {data_type}.")
 
     # 결측치가 있는 데이터를 제외한 DataFrame 반환
     df_cleaned = df.filter(
@@ -113,7 +110,7 @@ def save_missing_post_data(df, data_type, car_name, year, month, day):
     return df_cleaned
 
 
-def save_missing_comment_data(df, data_type, car_name, year, month, day):
+def save_missing_comment_data(df, car_name, year, month, day):
     """
     결측치가 있는 데이터를 별도로 저장하는 함수
     """
@@ -132,11 +129,8 @@ def save_missing_comment_data(df, data_type, car_name, year, month, day):
     if missing_data_df.count() > 0:
         # 누락된 데이터가 있을 경우, 별도의 파일로 저장
         missing_data_df.write.mode("overwrite").parquet(
-            f"s3a://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/missing_data/{data_type}_comment_missing"
+            f"s3a://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/failed_df/comment"
         )
-        print(f"Missing data for {data_type} saved.")
-    else:
-        print(f"No missing data for {data_type}.")
 
     # 결측치가 있는 데이터를 제외한 DataFrame 반환
     df_cleaned = df.filter(
@@ -151,10 +145,10 @@ def save_missing_comment_data(df, data_type, car_name, year, month, day):
     return df_cleaned
 
 
-def seperate_post_and_comment(df, source, car_name, year, month, day):
+def seperate_post_and_comment(df, car_name, year, month, day):
 
     # post data의 결측치&이상치 따로 저장
-    df = save_missing_post_data(df, source, car_name, year, month, day)
+    df = save_missing_post_data(df, car_name, year, month, day)
 
     # `uuid()`로 `post_uuid` 생성
     post_df = df.withColumn("post_uuid", F.expr("uuid()"))
@@ -184,9 +178,7 @@ def seperate_post_and_comment(df, source, car_name, year, month, day):
     )
 
     # comment data의 결측치&이상치 따로 저장
-    comment_df = save_missing_comment_data(
-        comment_df, source, car_name, year, month, day
-    )
+    comment_df = save_missing_comment_data(comment_df, car_name, year, month, day)
 
     post_df = post_df.drop("comments")
 
@@ -269,36 +261,14 @@ def process_text(year, month, day, car_name):
     spark = SparkSession.builder.appName("Process Text").getOrCreate()
 
     # s3에서 json 파일 읽어오기
-    youtube_raw_df = spark.read.json(
-        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/youtube_raw_*.json",
-        multiLine=True,
-        schema=INPUT_SCHEMA,
-    )
-    bobae_raw_df = spark.read.json(
-        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/bobae_raw.json",
-        multiLine=True,
-        schema=INPUT_SCHEMA,
-    )
-    clien_raw_df = spark.read.json(
-        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/clien_raw.json",
+    raw_df = spark.read.json(
+        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/raw/*.json",
         multiLine=True,
         schema=INPUT_SCHEMA,
     )
 
     # raw 데이터를 post, comment로 분리하기
-    youtube_post_df, youtube_comment_df = seperate_post_and_comment(
-        youtube_raw_df, "youtube", car_name, year, month, day
-    )
-    bobae_post_df, bobae_comment_df = seperate_post_and_comment(
-        bobae_raw_df, "bobae", car_name, year, month, day
-    )
-    clien_post_df, clien_comment_df = seperate_post_and_comment(
-        clien_raw_df, "clien", car_name, year, month, day
-    )
-
-    # source 별 post, comment 합치기
-    post_df = youtube_post_df.union(bobae_post_df).union(clien_post_df)
-    comment_df = youtube_comment_df.union(bobae_comment_df).union(clien_comment_df)
+    post_df, comment_df = seperate_post_and_comment(raw_df, car_name, year, month, day)
 
     # parquet 저장
     post_df.write.mode("overwrite").parquet(

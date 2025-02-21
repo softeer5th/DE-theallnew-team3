@@ -148,8 +148,9 @@ def lambda_handler(event, context):
     year, month, day = input_date.split("-")
 
     BUCKET_NAME = "the-all-new-bucket"
-    READ_OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/clien_target_urls.csv"
-    WRITE_OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/clien_raw.json"
+    READ_OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/target/clien.csv"
+    WRITE_OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/raw/clien.json"
+    FAILED_OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/target/clien_failed.csv"
 
     s3 = boto3.client("s3")
     s3.download_file(
@@ -188,7 +189,7 @@ def lambda_handler(event, context):
         s3.upload_file(
             f"/tmp/clien_{input_date}_{car_name}_failed_urls.csv",
             BUCKET_NAME,
-            f"{car_name}/{year}/{month}/{day}/failed/clien_target_urls.csv",
+            FAILED_OBJECT_KEY,
         )
 
         return {

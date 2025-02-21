@@ -28,7 +28,7 @@ def lambda_handler(event, context):
     year, month, day = input_date.split("-")
 
     BUCKET_NAME = "the-all-new-bucket"
-    OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/bobae_target_links.csv"
+    OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/target/bobae.csv"
 
     target_links = []
 
