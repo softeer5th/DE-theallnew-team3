@@ -71,7 +71,7 @@ with DAG(
 
     clear_staging_task = RedshiftDataOperator(
         task_id="Task-clear-Redshift-staging-table",
-        sql="init_staging.sql",
+        sql="clear_staging.sql",
         workgroup_name="the-all-new-workgroup",
         region_name="ap-northeast-2",
         database="dev",
