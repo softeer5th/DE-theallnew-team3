@@ -95,7 +95,7 @@ def lambda_handler(event, context):
 
     df = wr.s3.read_parquet(
         path=f"s3://{BUCKET_NAME}/{READ_OBJECT_KEY}",
-        columns=["sentence_uuid", "text"],
+        columns=["sentence_uuid", "sentence"],
     )
     data = df.to_dict(orient="records")
 
@@ -105,7 +105,7 @@ def lambda_handler(event, context):
     for i in range(0, len(data), BATCH_SIZE):
         try:
             batch = [
-                (item["sentence_uuid"], item["text"])
+                (item["sentence_uuid"], item["sentence"])
                 for item in data[i : i + BATCH_SIZE]
             ]
             batch_results = analyze_comments_batch(batch)
