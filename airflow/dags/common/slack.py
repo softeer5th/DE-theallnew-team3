@@ -92,7 +92,7 @@ def slack_warning_message(message: str, dag: DAG, task_id: str):
         }
     ]
     return SlackWebhookOperator(
-        task_id=f"slack_warning_{task_id}",
+        task_id=f"{task_id}",
         slack_webhook_conn_id="slack_default",
         message=f"*WARNING*: {message}",
         attachments=attachments,
