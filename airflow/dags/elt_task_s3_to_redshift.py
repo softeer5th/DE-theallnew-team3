@@ -18,7 +18,7 @@ copy_params = [
 with DAG(
     dag_id="ELT_DAG_S3_to_Redshift",
     description="DAG for ELT process from S3 to Redshift",
-    template_searchpath=[os.path.join(os.path.dirname(__file__), 'sql')]  # SQL 템플릿 파일들의 경로 설정
+    template_searchpath=[os.path.join(os.path.dirname(__file__), 'sql')]
 ) as dag:
     
     init_staging_task = RedshiftDataOperator(
@@ -31,7 +31,7 @@ with DAG(
     )
 
     copy_to_staging_tasks = []
-    for car_name in ["Casper"]:
+    for car_name in ['Casper']:
         for copy_param in copy_params:
             s3_key = (
                 f"""{car_name}/{{{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%Y') }}}}/{{{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%m') }}}}/{{{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%d') }}}}/{copy_param['S3_KEY']}"""
@@ -46,7 +46,8 @@ with DAG(
                 copy_options=[
                     "FORMAT AS PARQUET",
                 ],
-                aws_conn_id="redshift_default",
+                redshift_conn_id='redshift_default',
+                aws_conn_id='aws_default'
             )
             copy_to_staging_tasks.append(copy_to_staging_task)
 

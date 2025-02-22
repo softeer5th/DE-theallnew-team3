@@ -1,7 +1,5 @@
 -- DO NOT USE --
 
-CREATE SCHEMA IF NOT EXISTS mart AUTHORIZATION admin;
-
 CREATE TABLE IF NOT EXISTS mart.tb_posts(
     post_id       VARCHAR(255)      PRIMARY KEY,
     title         VARCHAR(255)      NOT NULL,
