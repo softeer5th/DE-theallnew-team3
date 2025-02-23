@@ -1,9 +1,13 @@
-from airflow.decorators import task
+import os
+from datetime import datetime, timedelta
 import logging
 import json
+
 from airflow import DAG
-from airflow.operators.python import PythonOperator
+from airflow.decorators import task
 from airflow.utils.task_group import TaskGroup
+from airflow.operators.python import PythonOperator
+
 from airflow.providers.amazon.aws.operators.emr import EmrAddStepsOperator
 from airflow.providers.amazon.aws.sensors.emr import EmrStepSensor
 from airflow.providers.amazon.aws.operators.emr import EmrCreateJobFlowOperator
@@ -11,7 +15,9 @@ from airflow.providers.amazon.aws.operators.s3 import S3ListOperator
 from airflow.providers.amazon.aws.operators.lambda_function import (
     LambdaInvokeFunctionOperator,
 )
-from datetime import datetime, timedelta
+from airflow.providers.amazon.aws.transfers.s3_to_redshift import S3ToRedshiftOperator
+from airflow.providers.amazon.aws.operators.redshift_data import RedshiftDataOperator
+
 from constant.car_data import CAR_TYPE_PARAM, CARS
 from common.slack import (
     slack_info_message,
@@ -97,11 +103,12 @@ default_args = {
 }
 
 with DAG(
-    "etl.single_model",
+    "etl.single_model-unify",
     schedule=None,
     description="ETL: single model",
     tags=["etl", "single"],
     params={"car_type": CAR_TYPE_PARAM},
+    template_searchpath=[os.path.join(os.path.dirname(__file__), 'sql')],
     default_args=default_args,
 ) as dag:
     target_car = PythonOperator(
@@ -251,6 +258,77 @@ with DAG(
         payload=generate_payload.output.map(lambda x: json.dumps(x, ensure_ascii=False))
     )
 
+    #
+    # Load to Redshift
+    #
+
+    S3_BUCKET = "the-all-new-bucket"
+
+    copy_params = [
+        {"TABLE_NAME": "tb_posts", "S3_KEY": "post_data/"},
+        {"TABLE_NAME": "tb_comments", "S3_KEY": "comment_data/"},
+        {"TABLE_NAME": "tb_sentences", "S3_KEY": "sentence_data/"},
+        {"TABLE_NAME": "tb_keywords", "S3_KEY": "classified/"},
+    ]
+
+    init_staging_task = RedshiftDataOperator(
+        task_id=f"Task-initialize-Redshift-staging-table",
+        sql="init_staging.sql",
+        workgroup_name="the-all-new-workgroup",
+        region_name="ap-northeast-2",
+        database="dev",
+        aws_conn_id='aws_default',
+    )
+
+    copy_to_staging_tasks = []
+    #for car_name in "{{ params.car_type }}":
+    for copy_param in copy_params:
+        s3_key = (
+            "{{ params.car_type }}/{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%Y') }}/{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%m') }}/{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%d') }}/"
+                + copy_param['S3_KEY']
+        )
+
+        copy_to_staging_task = S3ToRedshiftOperator(
+            task_id="Task-Copy-staging." + copy_param['TABLE_NAME'],
+            schema="staging",
+            table=copy_param["TABLE_NAME"],
+            s3_bucket=S3_BUCKET,
+            s3_key=s3_key,
+            copy_options=[
+                "FORMAT AS PARQUET",
+            ],
+            redshift_conn_id='redshift_default',
+            aws_conn_id='aws_default'
+        )
+        copy_to_staging_tasks.append(copy_to_staging_task)
+
+    upsert_staging_to_mart_task = RedshiftDataOperator(
+        task_id="Task-upsert-Redshift-mart-table",
+        sql="upsert_load_to_mart.sql",
+        workgroup_name="the-all-new-workgroup",
+        region_name="ap-northeast-2",
+        database="dev",
+        aws_conn_id='aws_default',
+    )
+
+    append_staging_to_mart_task = RedshiftDataOperator(
+        task_id="Task-append-Redshift-mart-table",
+        sql="append_load_to_mart.sql",
+        workgroup_name="the-all-new-workgroup",
+        region_name="ap-northeast-2",
+        database="dev",
+        aws_conn_id='aws_default',
+    )
+
+    clear_staging_task = RedshiftDataOperator(
+        task_id="Task-clear-Redshift-staging-table",
+        sql="clear_staging.sql",
+        workgroup_name="the-all-new-workgroup",
+        region_name="ap-northeast-2",
+        database="dev",
+        aws_conn_id='aws_default',
+    )
+
     send_etl_done_message = slack_info_message(
         message="ETL 완료했어요!!!", dag=dag, task_id="send_etl_done_message"
     )
@@ -280,5 +358,11 @@ with DAG(
         >> get_target_files
         >> generate_payload
         >> invoke_lambda
-        >> send_etl_done_message
+        >> init_staging_task
+        >> copy_to_staging_tasks
     )
+
+    for copy_task in copy_to_staging_tasks:
+        copy_task >> [upsert_staging_to_mart_task, append_staging_to_mart_task]
+
+    [upsert_staging_to_mart_task, append_staging_to_mart_task] >> clear_staging_task >> send_etl_done_message
