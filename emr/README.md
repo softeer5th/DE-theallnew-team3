@@ -59,12 +59,12 @@ spark-submit test.py s3a://the-all-new-bucket/싼타페/2025/01/raw_output
 
 
 ## spark data skew 확인하기
-실제데이터가 아니기에 11/11에 넣어두었고, sentence 데이터를 뽑는 것은 2025/02/20의 데이터를 뽑는 것으로 하드코딩 해두었습니다.   
+실제데이터가 아니기에 2025/11/11에 데이터를 넣어두었고, sentence 데이터는 2025/02/20의 데이터를 뽑는 것으로 하드코딩 해두었습니다.   
 - s3://the-all-new-bucket/Tucson/2025/11/11 : 총 4.5GB   
 - s3://the-all-new-bucket/Tucson/2025/11/12 : 총 320MB   
 test 코드: test_dataskew.py (s3에 배포돼있음)  
 
-1. EMR 클러스터 생성하기  
+1. aws EMR 클러스터 생성하기  
 2. submit-job.sh에 클로스터 id 넣기, spakr 옵션 추가 등  
 3. submit-job 코드 실행하기  
 ```bash 

@@ -16,7 +16,7 @@ DATE=$2
 # DATE에서 연도와 월 분리
 YEAR=$(echo $DATE | cut -d'-' -f1)
 MONTH=$(echo $DATE | cut -d'-' -f2)
-DAY=$(echo $DATE | cut -d'-' -f2)
+DAY=$(echo $DATE | cut -d'-' -f3)
 
 # UTF-8 인코딩 문제 해결 (iconv 제거)
 ENCODED_KEYWORD=$(printf "%s" "$KEYWORD")
@@ -36,8 +36,6 @@ Args=[\
 --conf,spark.executor.memory=4g,\
 --conf,spark.driver.memory=4g,\
 --conf,spark.executor.cores=2,\
---conf,spark.sql.adaptive.enabled=true,\
---conf,spark.sql.adaptive.advisoryPartitionSizeInBytes=128MB,\
 $S3_SCRIPT_PATH,\
 --year,$YEAR,\
 --month,$MONTH,\
