@@ -43,7 +43,7 @@ CAR_TYPE = list(CARS.keys())
 
 CAR_TYPE_PARAM = Param(
     enum=CAR_TYPE,
-    default="Grandeur",
+    default="Santafe",
     description="수집할 대상 자동차를 선택해주세요.",
     title="자동차 모델",
 )
