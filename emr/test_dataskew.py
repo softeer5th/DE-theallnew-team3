@@ -1,5 +1,7 @@
 import argparse
+import time as t
 from datetime import datetime, timedelta, timezone
+from pyspark import SparkConf
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, explode, lit, split, udf
 from pyspark.sql.functions import lower, regexp_replace, trim, length
@@ -63,22 +65,93 @@ def get_timestamp(year, month, day):
     return start_timestamp, end_timestamp
 
 
-def filter_missing_post(df):
-    df = df.dropna()
-    df = df.filter(F.col("like_count") >= 0)
-    df = df.filter(F.col("dislike_count") >= 0)
-    df = df.filter(F.col("view_count") >= 0)
-    df = df.filter(F.col("comment_count") >= 0)
-    return df
+def save_missing_post_data(df, car_name, year, month, day):
+    """
+    결측치가 있는 데이터를 별도로 저장하는 함수
+    """
+    # 결측치가 있는 데이터를 필터링
+    missing_data_df = df.filter(
+        col("id").isNull()
+        | col("car_name").isNull()
+        | col("source").isNull()
+        | col("title").isNull()
+        | col("nickname").isNull()
+        | col("article").isNull()
+        | col("view_count").isNull()
+        | (col("view_count") < 0)
+        | col("like_count").isNull()
+        | (col("like_count") < 0)
+        | col("dislike_count").isNull()
+        | (col("dislike_count") < 0)
+        | col("date").isNull()
+        | col("comment_count").isNull()
+        | (col("comment_count") < 0)
+    )
+
+    if missing_data_df.count() > 0:
+        # 누락된 데이터가 있을 경우, 별도의 파일로 저장
+        missing_data_df.write.mode("overwrite").parquet(
+            f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/failed_df/post"
+        )
+
+    # 결측치가 있는 데이터를 제외한 DataFrame 반환
+    df_cleaned = df.filter(
+        col("id").isNotNull()
+        & col("car_name").isNotNull()
+        & col("source").isNotNull()
+        & col("title").isNotNull()
+        & col("nickname").isNotNull()
+        & col("article").isNotNull()
+        & col("view_count").isNotNull()
+        & col("like_count").isNotNull()
+        & col("dislike_count").isNotNull()
+        & col("date").isNotNull()
+        & col("comment_count").isNotNull()
+    )
+
+    return df_cleaned
 
 
-def filter_missing_comment(df):
-    # just skip missing comment
-    # 굳이 필요하다면 filter_missing_post에서 comments 내부를 검사하는 것이 좋을 듯.
-    pass
+def save_missing_comment_data(df, car_name, year, month, day):
+    """
+    결측치가 있는 데이터를 별도로 저장하는 함수
+    """
+    # 결측치가 있는 데이터를 필터링 (timestamp, title 등에서 null 체크)
+    missing_data_df = df.filter(
+        col("comment_uuid").isNull()
+        | col("author").isNull()
+        | col("content").isNull()
+        | col("create_timestamp").isNull()
+        | col("like_cnt").isNull()
+        | (col("like_cnt") < 0)
+        | col("dislike_cnt").isNull()
+        | (col("dislike_cnt") < 0)
+    )
+
+    if missing_data_df.count() > 0:
+        # 누락된 데이터가 있을 경우, 별도의 파일로 저장
+        missing_data_df.write.mode("overwrite").parquet(
+            f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/failed_df/comment"
+        )
+
+    # 결측치가 있는 데이터를 제외한 DataFrame 반환
+    df_cleaned = df.filter(
+        col("comment_uuid").isNotNull()
+        & col("author").isNotNull()
+        & col("content").isNotNull()
+        & col("create_timestamp").isNotNull()
+        & col("like_cnt").isNotNull()
+        & col("dislike_cnt").isNotNull()
+    )
+
+    return df_cleaned
 
 
-def seperate_post_and_comment(df):
+def seperate_post_and_comment(df, car_name, year, month, day):
+
+    # post data의 결측치&이상치 따로 저장
+    df = save_missing_post_data(df, car_name, year, month, day)
+
     # `uuid()`로 `post_uuid` 생성
     post_df = df.withColumn("post_uuid", F.expr("uuid()"))
 
@@ -105,6 +178,9 @@ def seperate_post_and_comment(df):
         F.col("comment.comment_like_count").alias("like_cnt"),
         F.col("comment.comment_dislike_count").alias("dislike_cnt"),
     )
+
+    # comment data의 결측치&이상치 따로 저장
+    comment_df = save_missing_comment_data(comment_df, car_name, year, month, day)
 
     post_df = post_df.drop("comments")
 
@@ -161,7 +237,6 @@ def explode_comment(comment_df):
 def clean_sentence(df):
     df = df.filter(length(col("sentence")) > 10)
     df = df.filter(col("sentence").rlike(".*[가-힣].*"))
-    # TODO: withColumn 조건 하나로 합치면 개선될지?
     df = df.withColumn("sentence", lower(col("sentence")))
     df = df.withColumn("sentence", regexp_replace(col("sentence"), r"http\S+", ""))
     df = df.withColumn("sentence", regexp_replace(col("sentence"), r"https\S+", ""))
@@ -186,6 +261,18 @@ def clean_sentence(df):
 
 def process_text(year, month, day, car_name):
     spark = SparkSession.builder.appName("Process Text").getOrCreate()
+    #로컬에서 실행할 때 필요한 코드 (+ s3->s3a로 바꾸기)
+    # conf = SparkConf().set("spark.port.maxRetries", "50") \
+    #     .set("spark.sql.adaptive.enabled","true") \
+    #     .set("spark.sql.adaptive.advisoryPartitionSizeInBytes", "128MB")  # 권장 파티션 크기 설정
+    # spark = SparkSession.builder.config(conf=conf) \
+    #     .appName("GetS3FiletoLocal") \
+    #     .config("spark.jars.packages", "org.apache.hadoop:hadoop-aws:3.2.4,com.amazonaws:aws-java-sdk-bundle:1.11.901") \
+    #     .config("spark.hadoop.fs.s3a.aws.credentials.provider", "com.amazonaws.auth.DefaultAWSCredentialsProviderChain") \
+    #     .config("spark.hadoop.fs.s3a.endpoint", "s3.amazonaws.com") \
+    #     .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
+    #     .config("spark.sql.warehouse.dir", "/tmp/spark-warehouse") \
+    #     .getOrCreate()
 
     # s3에서 json 파일 읽어오기
     raw_df = spark.read.json(
@@ -194,16 +281,11 @@ def process_text(year, month, day, car_name):
         schema=INPUT_SCHEMA,
     )
 
-    cleaned_raw_df = filter_missing_post(raw_df)
-    # TODO: subtract 대신 filter 두번 거는게 나을지?
-    failed_raw_df = raw_df.subtract(cleaned_raw_df)
-
-    failed_raw_df.write.mode("overwrite").parquet(
-        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/failed_raw"
-    )
-
     # raw 데이터를 post, comment로 분리하기
-    post_df, comment_df = seperate_post_and_comment(cleaned_raw_df)
+    
+    post_df, comment_df = seperate_post_and_comment(raw_df, car_name, year, month, day)
+    #post_df = post_df.repartition(10)
+    #comment_df = comment_df.repartition(10)
 
     # parquet 저장
     post_df.write.mode("overwrite").parquet(
@@ -214,7 +296,7 @@ def process_text(year, month, day, car_name):
     )
 
     # 새로 생긴 데이터만 남기기
-    start_timestamp, end_timestamp = get_timestamp(year, month, day)
+    start_timestamp, end_timestamp = get_timestamp("2025", "02", "20")
 
     comment_df = comment_df.filter(
         (start_timestamp <= col("create_timestamp"))
@@ -226,18 +308,22 @@ def process_text(year, month, day, car_name):
     )
 
     # sentence 추출
+    #post_df=post_df.repartition(10)
+    #comment_df = comment_df.repartition(10)
     post_sentence_df = explode_post(post_df)
     comment_sentence_df = explode_comment(comment_df)
 
     sentence_df = post_sentence_df.union(comment_sentence_df)
 
     # sentence data를 rule based 로 정제(특수 문자 제거 등)
+    sentence_df = sentence_df.repartition(10)
     sentence_df = clean_sentence(sentence_df)
 
     sentence_df.repartition(10).write.mode("overwrite").parquet(
         f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/sentence_data"
     )
-
+    
+    #t.sleep(6000)
     spark.stop()
 
 

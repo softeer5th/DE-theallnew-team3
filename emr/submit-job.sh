@@ -16,17 +16,16 @@ DATE=$2
 # DATE에서 연도와 월 분리
 YEAR=$(echo $DATE | cut -d'-' -f1)
 MONTH=$(echo $DATE | cut -d'-' -f2)
+DAY=$(echo $DATE | cut -d'-' -f3)
 
 # UTF-8 인코딩 문제 해결 (iconv 제거)
 ENCODED_KEYWORD=$(printf "%s" "$KEYWORD")
 
 # 설정
-S3_SCRIPT_PATH="s3://the-all-new-bucket/py/text_processing.py"
-INPUT_S3_PATH="s3://the-all-new-bucket/${ENCODED_KEYWORD}/${YEAR}/${MONTH}"
-OUTPUT_S3_PATH="s3://the-all-new-bucket/${ENCODED_KEYWORD}/${YEAR}/${MONTH}"
+S3_SCRIPT_PATH="s3://the-all-new-bucket/py/test_dataskew.py"
 
 # 실행할 EMR 클러스터 ID
-CLUSTER_ID="j-3DLDTWUMLLR50"
+CLUSTER_ID="j-LCYZKT3LF70C"
 
 # Spark 작업 제출
 aws emr add-steps --cluster-id $CLUSTER_ID --steps Type=Spark,Name="TextProcessingJob",ActionOnFailure=CONTINUE,\
@@ -38,8 +37,10 @@ Args=[\
 --conf,spark.driver.memory=4g,\
 --conf,spark.executor.cores=2,\
 $S3_SCRIPT_PATH,\
-$INPUT_S3_PATH,\
-$OUTPUT_S3_PATH\
+--year,$YEAR,\
+--month,$MONTH,\
+--day,$DAY,\
+--car_name,$ENCODED_KEYWORD\
 ]
 
-echo "Spark job submitted to EMR cluster $CLUSTER_ID with parameters: KEYWORD=$ENCODED_KEYWORD, YEAR=$YEAR, MONTH=$MONTH"
+echo "Spark job submitted to EMR cluster $CLUSTER_ID with parameters: KEYWORD=$ENCODED_KEYWORD, YEAR=$YEAR, MONTH=$MONTH, day = $DAY"

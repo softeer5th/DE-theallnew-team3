@@ -32,53 +32,58 @@ def check_json_schema(data, expected_schema, path="root"):
 def lambda_handler(event, context):
     input_date = event["input_date"]
     car_name = event["car_name"]
+    source = event["source"]
 
     if not input_date or not car_name:
         raise Exception("input_date and car_name are required")
+    if source not in ["bobae", "clien", "youtube"]:
+        raise Exception("source must be one of bobae, clien, youtube")
 
     year, month, day = input_date.split("-")
 
     BUCKET_NAME = "the-all-new-bucket"
-    READ_OBJECT_KEY1 = f"{car_name}/{year}/{month}/{day}/raw/bobae.json"
-    READ_OBJECT_KEY2 = f"{car_name}/{year}/{month}/{day}/raw/clien.json"
-    READ_OBJECT_KEY3 = f"{car_name}/{year}/{month}/{day}/raw/youtube_1.json"
+    if source == "bobae":
+        READ_OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/raw/bobae.json"
+    elif source == "clien":
+        READ_OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/raw/clien.json"
+    elif source == "youtube":
+        READ_OBJECT_KEY = f"{car_name}/{year}/{month}/{day}/raw/youtube_1.json"
 
     s3 = boto3.client("s3")
 
-    for read_object_key in [READ_OBJECT_KEY1, READ_OBJECT_KEY2, READ_OBJECT_KEY3]:
-        s3.download_file(
-            BUCKET_NAME, read_object_key, f"/tmp/{read_object_key.split('/')[-1]}"
-        )
+    s3.download_file(
+        BUCKET_NAME, READ_OBJECT_KEY, f"/tmp/{READ_OBJECT_KEY.split('/')[-1]}"
+    )
 
-        with open(f"/tmp/{read_object_key.split('/')[-1]}", "r") as f:
-            data = json.load(f)
+    with open(f"/tmp/{READ_OBJECT_KEY.split('/')[-1]}", "r") as f:
+        data = json.load(f)
 
-        data_sample = random.sample(data, min(10, len(data)))
+    data_sample = random.sample(data, min(10, len(data)))
 
-        expected_schema = {
-            "car_name": str,
-            "id": str,
-            "source": str,
-            "title": str,
-            "nickname": str,
-            "article": str,
-            "like_count": int,
-            "dislike_count": int,
-            "view_count": int,
-            "date": int,
-            "comment_count": int,
-            "comments": [
-                {
-                    "comment_nickname": str,
-                    "comment_content": str,
-                    "comment_like_count": int,
-                    "comment_dislike_count": int,
-                    "comment_date": int,
-                }
-            ],
-        }
+    expected_schema = {
+        "car_name": str,
+        "id": str,
+        "source": str,
+        "title": str,
+        "nickname": str,
+        "article": str,
+        "like_count": int,
+        "dislike_count": int,
+        "view_count": int,
+        "date": int,
+        "comment_count": int,
+        "comments": [
+            {
+                "comment_nickname": str,
+                "comment_content": str,
+                "comment_like_count": int,
+                "comment_dislike_count": int,
+                "comment_date": int,
+            }
+        ],
+    }
 
-        for item in data_sample:
-            check_json_schema(item, expected_schema)
+    for item in data_sample:
+        check_json_schema(item, expected_schema)
 
     return {"statusCode": 200}

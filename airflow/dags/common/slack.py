@@ -10,7 +10,9 @@ SLACK_CONFIG = {
 }
 
 
-def slack_info_message(message: str, dag: DAG, task_id: str):
+def slack_info_message(
+    message: str, dag: DAG, task_id: str, trigger_rule: str = "all_success"
+):
     AIRFLOW_UI_URL = Variable.get("AIRFLOW_UI_URL")
     attachments = [
         {
@@ -48,6 +50,7 @@ def slack_info_message(message: str, dag: DAG, task_id: str):
     ]
     return SlackWebhookOperator(
         task_id=f"slack_info_{task_id}",
+        trigger_rule=trigger_rule,
         slack_webhook_conn_id="slack_default",
         message=f"*INFO*: {message}",
         attachments=attachments,
