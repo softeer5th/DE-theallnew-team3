@@ -31,10 +31,11 @@ with DAG(
     )
 
     copy_to_staging_tasks = []
-    for car_name in ['Casper']:
+    for car_name in ['Santafe']:
         for copy_param in copy_params:
             s3_key = (
-                f"""{car_name}/{{{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%Y') }}}}/{{{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%m') }}}}/{{{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%d') }}}}/{copy_param['S3_KEY']}"""
+                #f"""{car_name}/{{{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%Y') }}}}/{{{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%m') }}}}/{{{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%d') }}}}/{copy_param['S3_KEY']}"""
+                f"{car_name}/2025/01/01/{copy_param['S3_KEY']}"
             )
 
             copy_to_staging_task = S3ToRedshiftOperator(
@@ -69,18 +70,18 @@ with DAG(
         aws_conn_id='aws_default',
     )
 
-    clear_staging_task = RedshiftDataOperator(
-        task_id="Task-clear-Redshift-staging-table",
-        sql="clear_staging.sql",
+    refresh_view_task = RedshiftDataOperator(
+        task_id="Task-Refresh-Redshift-view",
+        sql="analysis_view.sql",
         workgroup_name="the-all-new-workgroup",
         region_name="ap-northeast-2",
         database="dev",
         aws_conn_id='aws_default',
     )
 
-    refresh_view_task = RedshiftDataOperator(
-        task_id="Task-Refresh-Redshift-view",
-        sql="analysis_view.sql",
+    clear_staging_task = RedshiftDataOperator(
+        task_id="Task-clear-Redshift-staging-table",
+        sql="clear_staging.sql",
         workgroup_name="the-all-new-workgroup",
         region_name="ap-northeast-2",
         database="dev",

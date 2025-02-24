@@ -350,6 +350,15 @@ with DAG(
         aws_conn_id="aws_default",
     )
 
+    refresh_view_task = RedshiftDataOperator(
+        task_id="Task-Refresh-Redshift-view",
+        sql="analysis_view.sql",
+        workgroup_name=WORKGROUP_NAME,
+        region_name=REGION,
+        database=DATABASE,
+        aws_conn_id='aws_default',
+    )
+
     clear_staging_task = RedshiftDataOperator(
         task_id="Task-clear-Redshift-staging-table",
         sql="clear_staging.sql",
@@ -357,15 +366,6 @@ with DAG(
         region_name=REGION,
         database=DATABASE,
         aws_conn_id="aws_default",
-    )
-
-    refresh_view_task = RedshiftDataOperator(
-        task_id="Task-Refresh-Redshift-view",
-        sql="analysis_view.sql",
-        workgroup_name="the-all-new-workgroup",
-        region_name="ap-northeast-2",
-        database="dev",
-        aws_conn_id='aws_default',
     )
 
     send_etl_done_message = slack_info_message(
