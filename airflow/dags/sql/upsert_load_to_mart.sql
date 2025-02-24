@@ -37,7 +37,7 @@ USING (
             stage_c.comment_id,
             stage_c.author,
             stage_c.content,
-            stage_c.create_date,
+            stage_c.create_timestamp,
             ROW_NUMBER() OVER (PARTITION BY comment_id ORDER BY comment_id) AS rn
         FROM staging.tb_comments AS stage_c
             JOIN  staging.tb_posts AS stage_p ON stage_c.post_uuid = stage_p.post_uuid

@@ -84,6 +84,7 @@ CREATE MATERIALIZED VIEW social_listening AS
         k."type",
         k.sentence,
         k.category,
+        k.keyword,
         k.sentiment_score,
         k.ingestion_date,
         k.car_name,
