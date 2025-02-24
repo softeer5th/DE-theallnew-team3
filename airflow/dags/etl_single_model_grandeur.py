@@ -333,6 +333,15 @@ with DAG(
     #     aws_conn_id="aws_default",
     # )
 
+    # refresh_view_task = RedshiftDataOperator(
+    #     task_id="Task-Refresh-Redshift-view",
+    #     sql="analysis_view.sql",
+    #     workgroup_name="the-all-new-workgroup",
+    #     region_name="ap-northeast-2",
+    #     database="dev",
+    #     aws_conn_id='aws_default',
+    # )
+
     send_etl_done_message = slack_info_message(
         message="ETL 완료했어요!!!", dag=dag, task_id="send_etl_done_message"
     )
@@ -372,6 +381,7 @@ with DAG(
 
     # (
     #     [upsert_staging_to_mart_task, append_staging_to_mart_task]
+    #     >> refresh_view_task
     #     >> clear_staging_task
     #     >> send_etl_done_message
     # )

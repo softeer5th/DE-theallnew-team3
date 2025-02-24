@@ -78,9 +78,18 @@ with DAG(
         aws_conn_id='aws_default',
     )
 
+    refresh_view_task = RedshiftDataOperator(
+        task_id="Task-Refresh-Redshift-view",
+        sql="analysis_view.sql",
+        workgroup_name="the-all-new-workgroup",
+        region_name="ap-northeast-2",
+        database="dev",
+        aws_conn_id='aws_default',
+    )
+
     init_staging_task >> copy_to_staging_tasks
 
     for copy_task in copy_to_staging_tasks:
         copy_task >> [upsert_staging_to_mart_task, append_staging_to_mart_task]
 
-    [upsert_staging_to_mart_task, append_staging_to_mart_task] >> clear_staging_task
+    [upsert_staging_to_mart_task, append_staging_to_mart_task] >> refresh_view_task >> clear_staging_task
