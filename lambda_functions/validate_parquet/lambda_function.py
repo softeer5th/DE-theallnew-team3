@@ -37,7 +37,7 @@ SENTENCE_SCHEMA = {
 }
 CLASSIFIED_SCHEMA = {
     "sentence_uuid": "string",
-    "sentiment_score": "float",
+    "sentiment_score": "double",
     "category": "string",
     "keyword": "string",
 }

@@ -180,6 +180,7 @@ with DAG(
         clien_validate = LambdaInvokeFunctionOperator(
             task_id="validate",
             function_name="validate_json",
+            trigger_rule="none_failed_min_one_success",
             payload=json.dumps({**PAYLOAD_JSON, "source": "clien"}),
         )
 
@@ -218,6 +219,7 @@ with DAG(
         bobae_validate = LambdaInvokeFunctionOperator(
             task_id="validate",
             function_name="validate_json",
+            trigger_rule="none_failed_min_one_success",
             payload=json.dumps({**PAYLOAD_JSON, "source": "bobae"}),
         )
 
