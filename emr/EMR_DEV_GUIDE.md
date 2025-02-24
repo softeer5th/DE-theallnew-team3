@@ -53,7 +53,7 @@ aws emr describe-step --cluster-id "j-000000" --step-id "s-0000000"
 
 - test.py 코드로 결과를 볼 수 있습니다.  
 ```bash
-spark-submit test.py s3a://the-all-new-bucket/싼타페/2025/01/raw_output    
+spark-submit show.py s3a://the-all-new-bucket/싼타페/2025/01/raw_output    
 ```  
 
 ## spark data skew 확인하기
