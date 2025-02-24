@@ -13,7 +13,7 @@ USING (
             stage.*,
             ROW_NUMBER() OVER (PARTITION BY post_id ORDER BY post_id) AS rn
         FROM staging.tb_posts AS stage
-    ) sub
+    )
     WHERE rn = 1
 ) AS stage
 ON mart.tb_posts.post_id = stage.post_id
@@ -30,7 +30,7 @@ WHEN NOT MATCHED THEN
 MERGE INTO mart.tb_comments
 USING (
     SELECT 
-        sub.*
+        *
     FROM (
         SELECT 
             stage_p.post_id,
@@ -41,7 +41,7 @@ USING (
             ROW_NUMBER() OVER (PARTITION BY comment_id ORDER BY comment_id) AS rn
         FROM staging.tb_comments AS stage_c
             JOIN  staging.tb_posts AS stage_p ON stage_c.post_uuid = stage_p.post_uuid
-    ) sub
+    )
     WHERE rn = 1
 ) AS stage
 ON mart.tb_comments.comment_id = stage.comment_id
