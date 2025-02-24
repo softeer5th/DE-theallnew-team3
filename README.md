@@ -1,81 +1,29 @@
-# DE-team3
+# The All New Team3
 
-```
-project
-├─ README.md
-├─ airflow
-│  ├─ AIRFLOW_DEV_GUIDE.md
-│  ├─ Dockerfile
-│  └─ docker-compose.yml
-└─ src
-   ├─ data_ingestion
-   │  └─ __init__.py
-   ├─ data_loading
-   │  └─ __init__.py
-   └─ data_transform
-      └─ __init__.py
+## 이번 페이스리프트는 성공적이었을까?
 
-```
+> 신규 출시 차량/페이스리프트 전/후 소비자 반응을 비교하고 분석하기 위한 데이터 파이프라인
 
-## 로컬 ETL 테스트
-
-```
-python src/etl.py '2025-01' '투싼'
-```
-
-# 주제: 페이스 리프트 및 새로 출시한 차량에 대한 소비자의 반응을 모니터링하는 Data Product
-
-<이미지 추가>
-
-- 소비자의 반응을 매일 수집하여 업데이트 해줍니다. 
-마케팅 담당자가 마케팅 결과에 대한 즉각적인 반응을 확인할 수 있습니다.
-차량 기획자가 차량에 대한 즉각적인 반응을 확인할 수 있습니다.
-- 사람들의 반응을 카테고리볼 수 있어 해당 기능을 개발하는 연구원, 디자이너에게 인사이트를 제공할 수 있습니다.
+### 데모
 
 ### 유튜브 시연 영상
 
-https://youtube….
+https://youtu.be/Fyyahbjk9A8
 
-### 팀원소개
+## 시스템 아키텍처
 
-| 이름 | 깃허브 주소 |
-| --- | --- |
-| 김건아 | https://github.com/KimGona |
-| 김민재 | https://github.com/openkmj |
-| 양주영 | https://github.com/yjy323 |
-
-### 폴더 개요
-
-- [airflow/](https://github.com/softeer5th/DE-theallnew-team3/tree/main/airflow)
-airflow 이용해 task 관리하는 폴더
-- [emr/](https://github.com/softeer5th/DE-theallnew-team3/tree/main/emr)
-emr에서 실행할 스파크 코드
-- [lambda_functions/](https://github.com/softeer5th/DE-theallnew-team3/tree/main/lambda_functions)
-aws 람다 함수에서 실행하는 코드들 (데이터 crawling 및 문장 감성 분석)
-- [src/](https://github.com/softeer5th/DE-theallnew-team3/tree/main/src)
-로컬에서 크롤링 및 transform 테스트하는 코드
-
-# 프로젝트 소개
-
-## 1. 프로젝트 배경 및 목표
-
-현대자동차는 새로운 변화를 주기 위해 주기적으로 세대를 바꾸기도 하고, 페이스리프트를 진행하며 소비자들의 욕구를 보다 더 충족시키기 위해 노력합니다. 
-
-신차 개발 이후, 세대 변경 이후, 페이스리프트 이후 등 새로운 차량이 출시되었을 때, 소비자들의 의견을 지속적으로 수집/모니터링하는 파이프라인을 구현하는 것이 이번 프로젝트의 목표입니다. 
-
-→ 소비자들이 작성한 게시글 및 댓글들을 수집한 데이터에서 키워드를 추출하여 보여주고자 합니다. 
-
-## 2. 시스템 아키텍처
 ![Image](https://github.com/user-attachments/assets/4e75aec1-37c3-4e8a-8ca8-be085f0cc95d)
 
-- aws lambda로 웹사이트를 크롤링합니다.(최초 데이터는 .json으로 저장)
-- EMR에서 텍스트 전처리를 수행합니다.(post, comment 데이터 분리 및 sentence 데이터 분리)
-- 이후 lambda에서 openai api를 이용해 자연어 처리를 수행합니다.
-- extract 및 transform 과정에서는 parquet 형식으로 s3 스토리지에 저장합니다.
-- s3에 저장된 parquet 데이터를 redshift로 copy?합니다.
-- Tableau를 활용하여 redshift에 저장된 정보를 시각화합니다.
+#### 주요 구성 요소
 
-## 3. 데이터베이스 구조
+- AWS Lambda → 웹사이트 크롤링 및 데이터 수집
+- AWS EMR → 텍스트 전처리 및 데이터 변환
+- AWS Lambda + ChatGPT → 자연어 처리 (감성 분석 및 키워드 추출)
+- Amazon S3 → Parquet 형식으로 데이터 저장
+- Amazon Redshift → 분석을 위한 데이터 적재
+- Tableau → 데이터 시각화
+
+## 데이터 스키마
 
 - s3
 
@@ -87,10 +35,28 @@ aws 람다 함수에서 실행하는 코드들 (데이터 crawling 및 문장 �
 
 ![Image](https://github.com/user-attachments/assets/931cb15d-410d-4d7a-9a74-52df3d123f38)
 
-clear_mart.sql, init_mart.sql, clear_staging.sql, init_staging.sql로 Redshift 스키마를 설정합니다. 
+clear_mart.sql, init_mart.sql, clear_staging.sql, init_staging.sql로 Redshift 스키마를 설정합니다.
 
 Airflow에서 S3ToRedshiftOperator를 활용해 S3에 저장된 parquet 데이터를 redshift의 staging table로 copy합니다.
 
 조회수, 댓글수, 좋아요 수 등 데이터를 여러번 수집할 때마다 바뀌는 값은 append_load_to_mart.sql을 이용해 중복해서 저장합니다.
 
-게시글의 제목, 본문내용, 댓글내용 등 데이터를 여러 번 수집해도 바뀌지 않는 값은 upsert_load_to_mart.sql로 저장해 unique한 값을 가지게 됩니다. 
+게시글의 제목, 본문내용, 댓글내용 등 데이터를 여러 번 수집해도 바뀌지 않는 값은 upsert_load_to_mart.sql로 저장해 unique한 값을 가지게 됩니다.
+
+## Project Details
+
+### [Airflow](./airflow/README.md)
+
+Airflow(AWS MWAA)를 통해 파이프라인을 구축합니다.
+
+### [EMR](./emr/README.md)
+
+EMR에서 실행할 스파크 코드
+
+### [Lambda](./lambda_functions/README.md)
+
+AWS 람다 함수
+
+### local
+
+프로토타입을 위한 로컬 크롤링 및 전처리 테스트 코드를 포함합니다.
