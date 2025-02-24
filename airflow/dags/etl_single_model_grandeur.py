@@ -275,63 +275,63 @@ with DAG(
         {"TABLE_NAME": "tb_keywords", "S3_KEY": "classified/"},
     ]
 
-    init_staging_task = RedshiftDataOperator(
-        task_id=f"Task-initialize-Redshift-staging-table",
-        sql="init_staging.sql",
-        workgroup_name="the-all-new-workgroup",
-        region_name="ap-northeast-2",
-        database="dev",
-        aws_conn_id="aws_default",
-    )
+    # init_staging_task = RedshiftDataOperator(
+    #     task_id=f"Task-initialize-Redshift-staging-table",
+    #     sql="init_staging.sql",
+    #     workgroup_name="the-all-new-workgroup",
+    #     region_name="ap-northeast-2",
+    #     database="dev",
+    #     aws_conn_id="aws_default",
+    # )
 
-    copy_to_staging_tasks = []
-    # for car_name in "{{ params.car_type }}":
-    for copy_param in copy_params:
-        s3_key = (
-            "{{ params.car_type }}/{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%Y') }}/{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%m') }}/{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%d') }}/"
-            + copy_param["S3_KEY"]
-        )
+    # copy_to_staging_tasks = []
+    # # for car_name in "{{ params.car_type }}":
+    # for copy_param in copy_params:
+    #     s3_key = (
+    #         "{{ params.car_type }}/{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%Y') }}/{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%m') }}/{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%d') }}/"
+    #         + copy_param["S3_KEY"]
+    #     )
 
-        copy_to_staging_task = S3ToRedshiftOperator(
-            task_id="Task-Copy-staging." + copy_param["TABLE_NAME"],
-            schema="staging",
-            table=copy_param["TABLE_NAME"],
-            s3_bucket=S3_BUCKET,
-            s3_key=s3_key,
-            copy_options=[
-                "FORMAT AS PARQUET",
-            ],
-            redshift_conn_id="redshift_default",
-            aws_conn_id="aws_default",
-        )
-        copy_to_staging_tasks.append(copy_to_staging_task)
+    #     copy_to_staging_task = S3ToRedshiftOperator(
+    #         task_id="Task-Copy-staging." + copy_param["TABLE_NAME"],
+    #         schema="staging",
+    #         table=copy_param["TABLE_NAME"],
+    #         s3_bucket=S3_BUCKET,
+    #         s3_key=s3_key,
+    #         copy_options=[
+    #             "FORMAT AS PARQUET",
+    #         ],
+    #         redshift_conn_id="redshift_default",
+    #         aws_conn_id="aws_default",
+    #     )
+    #     copy_to_staging_tasks.append(copy_to_staging_task)
 
-    upsert_staging_to_mart_task = RedshiftDataOperator(
-        task_id="Task-upsert-Redshift-mart-table",
-        sql="upsert_load_to_mart.sql",
-        workgroup_name="the-all-new-workgroup",
-        region_name="ap-northeast-2",
-        database="dev",
-        aws_conn_id="aws_default",
-    )
+    # upsert_staging_to_mart_task = RedshiftDataOperator(
+    #     task_id="Task-upsert-Redshift-mart-table",
+    #     sql="upsert_load_to_mart.sql",
+    #     workgroup_name="the-all-new-workgroup",
+    #     region_name="ap-northeast-2",
+    #     database="dev",
+    #     aws_conn_id="aws_default",
+    # )
 
-    append_staging_to_mart_task = RedshiftDataOperator(
-        task_id="Task-append-Redshift-mart-table",
-        sql="append_load_to_mart.sql",
-        workgroup_name="the-all-new-workgroup",
-        region_name="ap-northeast-2",
-        database="dev",
-        aws_conn_id="aws_default",
-    )
+    # append_staging_to_mart_task = RedshiftDataOperator(
+    #     task_id="Task-append-Redshift-mart-table",
+    #     sql="append_load_to_mart.sql",
+    #     workgroup_name="the-all-new-workgroup",
+    #     region_name="ap-northeast-2",
+    #     database="dev",
+    #     aws_conn_id="aws_default",
+    # )
 
-    clear_staging_task = RedshiftDataOperator(
-        task_id="Task-clear-Redshift-staging-table",
-        sql="clear_staging.sql",
-        workgroup_name="the-all-new-workgroup",
-        region_name="ap-northeast-2",
-        database="dev",
-        aws_conn_id="aws_default",
-    )
+    # clear_staging_task = RedshiftDataOperator(
+    #     task_id="Task-clear-Redshift-staging-table",
+    #     sql="clear_staging.sql",
+    #     workgroup_name="the-all-new-workgroup",
+    #     region_name="ap-northeast-2",
+    #     database="dev",
+    #     aws_conn_id="aws_default",
+    # )
 
     send_etl_done_message = slack_info_message(
         message="ETL 완료했어요!!!", dag=dag, task_id="send_etl_done_message"
@@ -362,15 +362,16 @@ with DAG(
         >> get_target_files
         >> generate_payload
         >> invoke_lambda
-        >> init_staging_task
-        >> copy_to_staging_tasks
-    )
-
-    for copy_task in copy_to_staging_tasks:
-        copy_task >> [upsert_staging_to_mart_task, append_staging_to_mart_task]
-
-    (
-        [upsert_staging_to_mart_task, append_staging_to_mart_task]
-        >> clear_staging_task
         >> send_etl_done_message
+        # >> init_staging_task
+        # >> copy_to_staging_tasks
     )
+
+    # for copy_task in copy_to_staging_tasks:
+    #     copy_task >> [upsert_staging_to_mart_task, append_staging_to_mart_task]
+
+    # (
+    #     [upsert_staging_to_mart_task, append_staging_to_mart_task]
+    #     >> clear_staging_task
+    #     >> send_etl_done_message
+    # )

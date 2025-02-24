@@ -161,6 +161,7 @@ def explode_comment(comment_df):
 def clean_sentence(df):
     df = df.filter(length(col("sentence")) > 10)
     df = df.filter(col("sentence").rlike(".*[가-힣].*"))
+    # TODO: withColumn 조건 하나로 합치면 개선될지?
     df = df.withColumn("sentence", lower(col("sentence")))
     df = df.withColumn("sentence", regexp_replace(col("sentence"), r"http\S+", ""))
     df = df.withColumn("sentence", regexp_replace(col("sentence"), r"https\S+", ""))
@@ -194,6 +195,7 @@ def process_text(year, month, day, car_name):
     )
 
     cleaned_raw_df = filter_missing_post(raw_df)
+    # TODO: subtract 대신 filter 두번 거는게 나을지?
     failed_raw_df = raw_df.subtract(cleaned_raw_df)
 
     failed_raw_df.write.mode("overwrite").parquet(

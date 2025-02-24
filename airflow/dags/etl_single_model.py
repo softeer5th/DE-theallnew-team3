@@ -19,6 +19,8 @@ from airflow.providers.amazon.aws.transfers.s3_to_redshift import S3ToRedshiftOp
 from airflow.providers.amazon.aws.operators.redshift_data import RedshiftDataOperator
 
 from constant.car_data import CAR_TYPE_PARAM, CARS
+from constant.s3_config import BUCKET_NAME
+from constant.redshift_config import WORKGROUP_NAME, REGION, DATABASE, COPY_PARAMS
 from common.slack import (
     slack_info_message,
     slack_handle_task_failure,
@@ -86,7 +88,7 @@ def branch_crawl(source: str, ti):
     result = json.loads(result)
     if result.get("failed"):
         return f"{source}.recover"
-    return None
+    return f"{source}.validate"
 
 
 @task.branch
@@ -95,7 +97,7 @@ def branch_recover(source: str, ti):
     result = json.loads(result)
     if result.get("failed"):
         return f"{source}.send_warning"
-    return None
+    return f"{source}.validate"
 
 
 default_args = {
@@ -104,12 +106,15 @@ default_args = {
 
 with DAG(
     "etl.single_model-unify",
-    schedule=None,
     description="ETL: single model",
     tags=["etl", "single"],
     params={"car_type": CAR_TYPE_PARAM},
-    template_searchpath=[os.path.join(os.path.dirname(__file__), 'sql')],
+    template_searchpath=[os.path.join(os.path.dirname(__file__), "sql")],
+    start_date=datetime(2025, 1, 1),
+    schedule_interval="0 12 * * *",
+    catchup=False,
     default_args=default_args,
+    max_active_runs=1,
 ) as dag:
     target_car = PythonOperator(
         task_id="get_target_car",
@@ -172,10 +177,17 @@ with DAG(
             payload=PAYLOAD,
         )
 
+        clien_validate = LambdaInvokeFunctionOperator(
+            task_id="validate",
+            function_name="validate_json",
+            payload=json.dumps({**PAYLOAD_JSON, "source": "clien"}),
+        )
+
         clien_collect >> clien_crawl >> clien_branch_crawl
-        clien_branch_crawl >> clien_recover
+        clien_branch_crawl >> [clien_recover, clien_validate]
         clien_recover >> clien_branch_recover
-        clien_branch_recover >> clien_send_warning
+        clien_branch_recover >> [clien_send_warning, clien_validate]
+        clien_send_warning >> clien_validate
 
     with TaskGroup(group_id="bobae") as crawl_bobae_task_group:
         bobae_collect = LambdaInvokeFunctionOperator(
@@ -203,21 +215,29 @@ with DAG(
             payload=PAYLOAD,
         )
 
+        bobae_validate = LambdaInvokeFunctionOperator(
+            task_id="validate",
+            function_name="validate_json",
+            payload=json.dumps({**PAYLOAD_JSON, "source": "bobae"}),
+        )
+
         bobae_collect >> bobae_crawl >> bobae_branch_crawl
-        bobae_branch_crawl >> bobae_recover
+        bobae_branch_crawl >> [bobae_recover, bobae_validate]
         bobae_recover >> bobae_branch_recover
-        bobae_branch_recover >> bobae_send_warning
+        bobae_branch_recover >> [bobae_send_warning, bobae_validate]
+        bobae_send_warning >> bobae_validate
 
     send_crawl_all_success_message = slack_info_message(
         message="크롤링 성공했어요!!!",
         dag=dag,
         task_id="send_crawl_all_success_message",
+        trigger_rule="none_failed_min_one_success",
     )
 
     create_emr_cluster = EmrCreateJobFlowOperator(
         task_id="emr_create_job_flow",
         job_flow_overrides=JOB_FLOW_OVERRIDES,
-        trigger_rule="one_success",
+        trigger_rule="none_failed_min_one_success",
     )
 
     add_steps = EmrAddStepsOperator(
@@ -241,7 +261,7 @@ with DAG(
 
     get_target_files = S3ListOperator(
         task_id="get_target_file_list",
-        bucket="the-all-new-bucket",
+        bucket=BUCKET_NAME,
         prefix="{{ params.car_type }}/{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%Y') }}/{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%m') }}/{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%d') }}/sentence_data/",
     )
 
@@ -258,75 +278,72 @@ with DAG(
         payload=generate_payload.output.map(lambda x: json.dumps(x, ensure_ascii=False))
     )
 
+    validate_parquet = LambdaInvokeFunctionOperator(
+        task_id="validate_parquet",
+        function_name="validate_parquet",
+        payload=PAYLOAD,
+    )
+
     #
     # Load to Redshift
     #
 
-    S3_BUCKET = "the-all-new-bucket"
-
-    copy_params = [
-        {"TABLE_NAME": "tb_posts", "S3_KEY": "post_data/"},
-        {"TABLE_NAME": "tb_comments", "S3_KEY": "comment_data/"},
-        {"TABLE_NAME": "tb_sentences", "S3_KEY": "sentence_data/"},
-        {"TABLE_NAME": "tb_keywords", "S3_KEY": "classified/"},
-    ]
-
     init_staging_task = RedshiftDataOperator(
         task_id=f"Task-initialize-Redshift-staging-table",
         sql="init_staging.sql",
-        workgroup_name="the-all-new-workgroup",
-        region_name="ap-northeast-2",
-        database="dev",
-        aws_conn_id='aws_default',
+        workgroup_name=WORKGROUP_NAME,
+        region_name=REGION,
+        database=DATABASE,
+        aws_conn_id="aws_default",
     )
 
     copy_to_staging_tasks = []
-    #for car_name in "{{ params.car_type }}":
-    for copy_param in copy_params:
+
+    for copy_param in COPY_PARAMS:
         s3_key = (
             "{{ params.car_type }}/{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%Y') }}/{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%m') }}/{{ macros.ds_format(macros.ds_add(ds, -1), '%Y-%m-%d', '%d') }}/"
-                + copy_param['S3_KEY']
+            + copy_param["S3_KEY"]
         )
 
         copy_to_staging_task = S3ToRedshiftOperator(
-            task_id="Task-Copy-staging." + copy_param['TABLE_NAME'],
+            task_id="Task-Copy-staging." + copy_param["TABLE_NAME"],
             schema="staging",
             table=copy_param["TABLE_NAME"],
-            s3_bucket=S3_BUCKET,
+            s3_bucket=BUCKET_NAME,
             s3_key=s3_key,
             copy_options=[
                 "FORMAT AS PARQUET",
             ],
-            redshift_conn_id='redshift_default',
-            aws_conn_id='aws_default'
+            redshift_conn_id="redshift_default",
+            aws_conn_id="aws_default",
         )
         copy_to_staging_tasks.append(copy_to_staging_task)
 
     upsert_staging_to_mart_task = RedshiftDataOperator(
         task_id="Task-upsert-Redshift-mart-table",
         sql="upsert_load_to_mart.sql",
-        workgroup_name="the-all-new-workgroup",
-        region_name="ap-northeast-2",
-        database="dev",
-        aws_conn_id='aws_default',
+        workgroup_name=WORKGROUP_NAME,
+        region_name=REGION,
+        database=DATABASE,
+        aws_conn_id="aws_default",
     )
 
     append_staging_to_mart_task = RedshiftDataOperator(
         task_id="Task-append-Redshift-mart-table",
         sql="append_load_to_mart.sql",
-        workgroup_name="the-all-new-workgroup",
-        region_name="ap-northeast-2",
-        database="dev",
-        aws_conn_id='aws_default',
+        workgroup_name=WORKGROUP_NAME,
+        region_name=REGION,
+        database=DATABASE,
+        aws_conn_id="aws_default",
     )
 
     clear_staging_task = RedshiftDataOperator(
         task_id="Task-clear-Redshift-staging-table",
         sql="clear_staging.sql",
-        workgroup_name="the-all-new-workgroup",
-        region_name="ap-northeast-2",
-        database="dev",
-        aws_conn_id='aws_default',
+        workgroup_name=WORKGROUP_NAME,
+        region_name=REGION,
+        database=DATABASE,
+        aws_conn_id="aws_default",
     )
 
     send_etl_done_message = slack_info_message(
@@ -359,10 +376,15 @@ with DAG(
         >> generate_payload
         >> invoke_lambda
         >> init_staging_task
+        >> validate_parquet
         >> copy_to_staging_tasks
     )
 
     for copy_task in copy_to_staging_tasks:
         copy_task >> [upsert_staging_to_mart_task, append_staging_to_mart_task]
 
-    [upsert_staging_to_mart_task, append_staging_to_mart_task] >> clear_staging_task >> send_etl_done_message
+    (
+        [upsert_staging_to_mart_task, append_staging_to_mart_task]
+        >> clear_staging_task
+        >> send_etl_done_message
+    )
