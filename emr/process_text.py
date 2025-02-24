@@ -65,10 +65,10 @@ def get_timestamp(year, month, day):
 
 def filter_missing_post(df):
     df = df.dropna()
-    df = df.filter(F.col("like_cnt") >= 0)
-    df = df.filter(F.col("dislike_cnt") >= 0)
-    df = df.filter(F.col("view_cnt") >= 0)
-    df = df.filter(F.col("comment_cnt") >= 0)
+    df = df.filter(F.col("like_count") >= 0)
+    df = df.filter(F.col("dislike_count") >= 0)
+    df = df.filter(F.col("view_count") >= 0)
+    df = df.filter(F.col("comment_count") >= 0)
     return df
 
 
