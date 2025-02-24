@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 import logging
 import json
 
@@ -64,11 +64,10 @@ def generate_payload(**kwargs):
     parquet_files = [f.split("/")[-1] for f in parquet_files]
 
     cur_datetime = datetime.strptime(ds, "%Y-%m-%d")
-    prev_datetime = cur_datetime - timedelta(days=1)
 
     payload = [
         {
-            "input_date": prev_datetime.strftime("%Y-%m-%d"),
+            "input_date": cur_datetime.strftime("%Y-%m-%d"),
             "car_name": params["car_type"],
             "object_key": f,
         }
