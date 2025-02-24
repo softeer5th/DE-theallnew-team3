@@ -131,7 +131,7 @@ def save_missing_comment_data(df, car_name, year, month, day):
     if missing_data_df.count() > 0:
         # 누락된 데이터가 있을 경우, 별도의 파일로 저장
         missing_data_df.write.mode("overwrite").parquet(
-            f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/failed_df/comment"
+            f"s3a://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/failed_df/comment"
         )
 
     # 결측치가 있는 데이터를 제외한 DataFrame 반환
@@ -165,13 +165,7 @@ def seperate_post_and_comment(df, car_name, year, month, day):
     comment_df = comment_df.select(
         "post_uuid",
         F.expr("uuid()").alias("comment_uuid"),
-        F.concat(
-            F.col("id"),
-            F.lit("_"),
-            F.hash(
-                F.col("comment.comment_nickname"), F.col("comment.comment_content")
-            ).cast("string"),
-        ).alias("comment_id"),
+        F.expr("uuid()").alias("comment_id"),
         F.col("comment.comment_nickname").alias("author"),
         F.col("comment.comment_content").alias("content"),
         F.col("comment.comment_date").alias("create_timestamp"),
@@ -187,7 +181,7 @@ def seperate_post_and_comment(df, car_name, year, month, day):
     # rename columns
     post_df = post_df.select(
         "post_uuid",
-        F.col("id").alias("post_id"),
+        F.expr("uuid()").alias("post_id"),
         "title",
         F.col("nickname").alias("author"),
         "article",
@@ -257,25 +251,36 @@ def clean_sentence(df):
     df = df.filter(length(col("sentence")) > 10)
     return df
 
+    
+def make_classify(df):
+    df = df.select(
+        col("sentence_uuid"),
+        lit(0.5).alias("sentiment_score"),
+        lit("기능").alias("category"),
+        lit("편의성").alias("keyword"),
+    )    
+    
+    
+    return df
 
 def process_text(year, month, day, car_name):
-    spark = SparkSession.builder.appName("Process Text").getOrCreate()
+    #spark = SparkSession.builder.appName("Process Text").getOrCreate()
     #로컬에서 실행할 때 필요한 코드 (+ s3->s3a로 바꾸기)
-    # conf = SparkConf().set("spark.port.maxRetries", "50") \
-    #     .set("spark.sql.adaptive.enabled","true") \
-    #     .set("spark.sql.adaptive.advisoryPartitionSizeInBytes", "128MB")  # 권장 파티션 크기 설정
-    # spark = SparkSession.builder.config(conf=conf) \
-    #     .appName("GetS3FiletoLocal") \
-    #     .config("spark.jars.packages", "org.apache.hadoop:hadoop-aws:3.2.4,com.amazonaws:aws-java-sdk-bundle:1.11.901") \
-    #     .config("spark.hadoop.fs.s3a.aws.credentials.provider", "com.amazonaws.auth.DefaultAWSCredentialsProviderChain") \
-    #     .config("spark.hadoop.fs.s3a.endpoint", "s3.amazonaws.com") \
-    #     .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
-    #     .config("spark.sql.warehouse.dir", "/tmp/spark-warehouse") \
-    #     .getOrCreate()
+    conf = SparkConf().set("spark.port.maxRetries", "50") \
+        .set("spark.sql.adaptive.enabled","true") \
+        .set("spark.sql.adaptive.advisoryPartitionSizeInBytes", "128MB")  # 권장 파티션 크기 설정
+    spark = SparkSession.builder.config(conf=conf) \
+        .appName("GetS3FiletoLocal") \
+        .config("spark.jars.packages", "org.apache.hadoop:hadoop-aws:3.2.4,com.amazonaws:aws-java-sdk-bundle:1.11.901") \
+        .config("spark.hadoop.fs.s3a.aws.credentials.provider", "com.amazonaws.auth.DefaultAWSCredentialsProviderChain") \
+        .config("spark.hadoop.fs.s3a.endpoint", "s3.amazonaws.com") \
+        .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
+        .config("spark.sql.warehouse.dir", "/tmp/spark-warehouse") \
+        .getOrCreate()
 
     # s3에서 json 파일 읽어오기
     raw_df = spark.read.json(
-        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/raw/*.json",
+        f"s3a://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/raw/*.json",
         multiLine=True,
         schema=INPUT_SCHEMA,
     )
@@ -288,14 +293,14 @@ def process_text(year, month, day, car_name):
 
     # parquet 저장
     post_df.write.mode("overwrite").parquet(
-        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/post_data"
+        f"s3a://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/post_data"
     )
     comment_df.write.mode("overwrite").parquet(
-        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/comment_data"
+        f"s3a://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/comment_data"
     )
 
     # 새로 생긴 데이터만 남기기
-    start_timestamp, end_timestamp = get_timestamp("2025", "02", "19")
+    start_timestamp, end_timestamp = get_timestamp("2025", "01", "27")
 
     comment_df = comment_df.filter(
         (start_timestamp <= col("create_timestamp"))
@@ -320,9 +325,14 @@ def process_text(year, month, day, car_name):
     sentence_df = clean_sentence(sentence_df)
 
     sentence_df.repartition(10).write.mode("overwrite").parquet(
-        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/sentence_data"
+        f"s3a://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/sentence_data"
     )
+    classify_df = make_classify(sentence_df)
     
+    classify_df.write.mode("overwrite").parquet(
+        f"s3a://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/classified"
+    )
+        
     t.sleep(6000)
     spark.stop()
 

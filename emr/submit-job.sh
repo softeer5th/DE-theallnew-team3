@@ -22,10 +22,10 @@ DAY=$(echo $DATE | cut -d'-' -f3)
 ENCODED_KEYWORD=$(printf "%s" "$KEYWORD")
 
 # 설정
-S3_SCRIPT_PATH="s3://the-all-new-bucket/py/test_dataskew.py"
+S3_SCRIPT_PATH="s3://the-all-new-bucket/py/making_dummy.py"
 
 # 실행할 EMR 클러스터 ID
-CLUSTER_ID="j-LCYZKT3LF70C"
+CLUSTER_ID="j-95UQX2W48CL1"
 
 # Spark 작업 제출
 aws emr add-steps --cluster-id $CLUSTER_ID --steps Type=Spark,Name="TextProcessingJob",ActionOnFailure=CONTINUE,\
