@@ -60,7 +60,7 @@ def analyze_comments_batch(comments):
 
         results.append(
             {
-                "sentence_id": comments[i][0],
+                "sentence_uuid": comments[i][0],
                 "sentiment_score": sentiment,
                 "category": topic,
                 "keyword": subtopic,

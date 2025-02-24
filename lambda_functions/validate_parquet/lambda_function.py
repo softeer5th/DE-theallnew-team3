@@ -1,53 +1,46 @@
-import json
 import pyarrow.parquet as pq
 import pyarrow as pa
-import s3fs
+import awswrangler as wr
 
-POST_SCHEMA = pa.schema(
-    [
-        pa.field("post_uuid", pa.string()),
-        pa.field("post_id", pa.string()),
-        pa.field("title", pa.string()),
-        pa.field("author", pa.string()),
-        pa.field("article", pa.string()),
-        pa.field("create_timestamp", pa.int64()),
-        pa.field("like_cnt", pa.int64()),
-        pa.field("dislike_cnt", pa.int64()),
-        pa.field("view_cnt", pa.int64()),
-        pa.field("comment_cnt", pa.int64()),
-        pa.field("car_name", pa.string()),
-        pa.field("source", pa.string()),
-    ]
-)
-COMMENT_SCHEMA = pa.schema(
-    [
-        pa.field("post_uuid", pa.string()),
-        pa.field("comment_uuid", pa.string()),
-        pa.field("comment_id", pa.string()),
-        pa.field("author", pa.string()),
-        pa.field("content", pa.string()),
-        pa.field("create_timestamp", pa.int64()),
-        pa.field("like_cnt", pa.int64()),
-        pa.field("dislike_cnt", pa.int64()),
-    ]
-)
-SENTENCE_SCHEMA = pa.schema(
-    [
-        pa.field("post_uuid", pa.string()),
-        pa.field("comment_uuid", pa.string()),
-        pa.field("sentence_uuid", pa.string()),
-        pa.field("type", pa.string()),
-        pa.field("sentence", pa.string()),
-    ]
-)
-CLASSIFIED_SCHEMA = pa.schema(
-    [
-        pa.field("sentence_uuid", pa.string()),
-        pa.field("sentiment_score", pa.float64()),
-        pa.field("category", pa.string()),
-        pa.field("keyword", pa.string()),
-    ]
-)
+POST_SCHEMA = {
+    "post_uuid": "string",
+    "post_id": "string",
+    "title": "string",
+    "author": "string",
+    "article": "string",
+    "create_timestamp": "int",
+    "like_cnt": "int",
+    "dislike_cnt": "int",
+    "view_cnt": "int",
+    "comment_cnt": "int",
+    "car_name": "string",
+    "source": "string",
+}
+
+COMMENT_SCHEMA = {
+    "post_uuid": "string",
+    "comment_uuid": "string",
+    "comment_id": "string",
+    "author": "string",
+    "content": "string",
+    "create_timestamp": "int",
+    "like_cnt": "int",
+    "dislike_cnt": "int",
+}
+
+SENTENCE_SCHEMA = {
+    "post_uuid": "string",
+    "comment_uuid": "string",
+    "sentence_uuid": "string",
+    "type": "string",
+    "sentence": "string",
+}
+CLASSIFIED_SCHEMA = {
+    "sentence_uuid": "string",
+    "sentiment_score": "float",
+    "category": "string",
+    "keyword": "string",
+}
 
 
 def lambda_handler(event, context):
@@ -72,17 +65,12 @@ def lambda_handler(event, context):
         (CLASSIFIED_OBJECT_KEY, CLASSIFIED_SCHEMA),
     ]:
         s3_uri = f"s3://{BUCKET_NAME}/{object_key}"
+        file_schema, _ = wr.s3.read_parquet_metadata(s3_uri)
 
-        fs = s3fs.S3FileSystem()
+        print(file_schema)
 
-        with fs.open(s3_uri, "rb") as f:
-            parquet_file = pq.ParquetFile(f)
-            file_schema = parquet_file.schema.to_arrow_schema()
-
-            is_schema_match = file_schema.equals(schema)
-
-            if not is_schema_match:
-                raise Exception(f"Schema mismatch for {object_key}")
+        if file_schema != schema:
+            raise Exception(f"Schema mismatch for {object_key}")
 
     return {
         "statusCode": 200,
