@@ -7,6 +7,7 @@ from airflow import DAG
 from airflow.decorators import task
 from airflow.utils.task_group import TaskGroup
 from airflow.operators.python import PythonOperator
+from airflow.operators.empty import EmptyOperator
 
 from airflow.providers.amazon.aws.operators.emr import EmrAddStepsOperator
 from airflow.providers.amazon.aws.sensors.emr import EmrStepSensor
@@ -161,6 +162,10 @@ with DAG(
             function_name="crawl_clien",
             payload=PAYLOAD,
         )
+        clien_collect_failed = EmptyOperator(
+            trigger_rule="all_failed",
+            task_id="collect_failed",
+        )
 
         clien_branch_crawl = branch_crawl(source="clien")
         clien_branch_recover = branch_recover(source="clien")
@@ -185,6 +190,7 @@ with DAG(
         )
 
         clien_collect >> clien_crawl >> clien_branch_crawl
+        clien_collect >> clien_collect_failed
         clien_branch_crawl >> [clien_recover, clien_validate]
         clien_recover >> clien_branch_recover
         clien_branch_recover >> [clien_send_warning, clien_validate]
@@ -200,6 +206,10 @@ with DAG(
             task_id="crawl",
             function_name="crawl_bobae",
             payload=PAYLOAD,
+        )
+        bobae_collect_failed = EmptyOperator(
+            trigger_rule="all_failed",
+            task_id="collect_failed",
         )
 
         bobae_branch_crawl = branch_crawl(source="bobae")
@@ -224,6 +234,7 @@ with DAG(
         )
 
         bobae_collect >> bobae_crawl >> bobae_branch_crawl
+        bobae_collect >> bobae_collect_failed
         bobae_branch_crawl >> [bobae_recover, bobae_validate]
         bobae_recover >> bobae_branch_recover
         bobae_branch_recover >> [bobae_send_warning, bobae_validate]
