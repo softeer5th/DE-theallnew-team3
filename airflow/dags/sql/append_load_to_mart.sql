@@ -54,12 +54,12 @@ INSERT INTO mart.tb_keywords(
 )
 SELECT p.post_id,
     CASE
-        WHEN s.type = 'post' THEN NULL
-        WHEN s.type = 'comment' THEN c.comment_id
+        WHEN s."type" = 'post' THEN NULL
+        WHEN s."type" = 'comment' THEN c.comment_id
     END AS comment_id,
     p.car_name,
     p.source,
-    s.type,
+    s."type",
     s.sentence,
     k.category,
     k.keyword,
@@ -70,6 +70,6 @@ FROM staging.tb_sentences as s
         ON s.sentence_uuid = k.sentence_uuid
     JOIN staging.tb_posts as p
         ON s.post_uuid = p.post_uuid
-    JOIN staging.tb_comments as c
+    LEFT JOIN staging.tb_comments as c
         ON s.comment_uuid = c.comment_uuid
 ORDER BY car_name, source;

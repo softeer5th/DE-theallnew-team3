@@ -39,29 +39,28 @@ CREATE TABLE IF NOT EXISTS mart.tb_posts_metric(
     comment_cnt     BIGINT NULL,
     ingestion_date  DATE   NOT NULL,
 
-    FOREIGN KEY (post_id, comment_id) REFERENCES mart.tb_posts  (post_id, comment_id),
+    FOREIGN KEY (post_id)   REFERENCES mart.tb_posts         (post_id),
     FOREIGN KEY (car_name)  REFERENCES mart.tb_car          (car_name),
     FOREIGN KEY (source)    REFERENCES mart.tb_web_source   (source)
 );
 
 CREATE TABLE IF NOT EXISTS mart.tb_comments_metric(
     post_id         VARCHAR(255) NOT NULL,
-    comment_id      VARCHAR(255) NOT NULL,
+    comment_id      VARCHAR(255) NULL,
     car_name        VARCHAR(255) NOT NULL,
     source          VARCHAR(255) NOT NULL,
     like_cnt        BIGINT NULL,
     dislike_cnt     BIGINT NULL,
     ingestion_date  VARCHAR(255) NOT NULL,
 
-    FOREIGN KEY (post_id)      REFERENCES mart.tb_posts         (post_id),
-    FOREIGN KEY (comment_id)   REFERENCES mart.tb_comments      (comment_id),
+    FOREIGN KEY (post_id, comment_id) REFERENCES mart.tb_comments  (post_id, comment_id),
     FOREIGN KEY (car_name)     REFERENCES mart.tb_car           (car_name),
     FOREIGN KEY (source)       REFERENCES mart.tb_web_source    (source)
 );
 
 CREATE TABLE IF NOT EXISTS mart.tb_keywords(
     post_id         VARCHAR(255)        NOT NULL,
-    comment_id      VARCHAR(255)        NOT NULL,
+    comment_id      VARCHAR(255)        NULL,
     car_name        VARCHAR(255)        NOT NULL,
     source          VARCHAR(255)        NOT NULL,
     type            VARCHAR(255)        NOT NULL,
@@ -71,13 +70,12 @@ CREATE TABLE IF NOT EXISTS mart.tb_keywords(
     sentiment_score DOUBLE PRECISION    NOT NULL,
     ingestion_date  DATE                NOT NULL,
 
-    FOREIGN KEY (post_id)      REFERENCES mart.tb_posts         (post_id),
-    FOREIGN KEY (comment_id)   REFERENCES mart.tb_comments      (comment_id),
+    FOREIGN KEY (post_id, comment_id) REFERENCES mart.tb_comments  (post_id, comment_id),
     FOREIGN KEY (car_name)              REFERENCES mart.tb_car          (car_name),
     FOREIGN KEY (source)                REFERENCES mart.tb_web_source   (source)
 );
 
-CREATE MATERIALIZED VIEW social_listening AS
+CREATE MATERIALIZED VIEW mart.vw_social_listening AS
     SELECT
         k.post_id,
         CASE WHEN k."type" = 'comment' THEN k.comment_id ELSE NULL END AS comment_id,
@@ -96,7 +94,7 @@ CREATE MATERIALIZED VIEW social_listening AS
     JOIN mart.tb_car AS c ON k.car_name = c.car_name
     JOIN mart.tb_web_source AS w ON k.source = w.source;
 
-CREATE MATERIALIZED VIEW social_attention AS
+CREATE MATERIALIZED VIEW mart.vw_social_attention AS
     SELECT
        p.post_id,
        c.comment_id,
@@ -110,10 +108,7 @@ CREATE MATERIALIZED VIEW social_attention AS
         END AS dislike_cnt,
         p.view_cnt,
         p.comment_cnt,
-        CASE
-            WHEN comment_id IS NULL THEN CAST(p.ingestion_date)
-            ELSE CAST(c.ingestion_date)
-        END AS ingestion_date,
+        p.ingestion_date,
         p.car_name,
         car.pre_car_name,
         car.release_date,
@@ -122,4 +117,12 @@ CREATE MATERIALIZED VIEW social_attention AS
     FROM mart.tb_posts_metric AS p
         LEFT JOIN mart.tb_comments_metric AS c ON p.post_id = c.post_id
         JOIN mart.tb_car AS car ON p.car_name = car.car_name
-        JOIN mart.tb_web_source AS w ON p.source = w.source
+        JOIN mart.tb_web_source AS w ON p.source = w.source;
+
+GRANT CREATE ON SCHEMA staging TO "IAMR:MWAA-User";
+ALTER SCHEMA staging OWNER TO "IAMR:MWAA-User";
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA staging TO "IAMR:MWAA-User";
+
+GRANT CREATE ON SCHEMA mart TO "IAMR:MWAA-User";
+ALTER SCHEMA mart OWNER TO "IAMR:MWAA-User";
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA mart TO "IAMR:MWAA-User";

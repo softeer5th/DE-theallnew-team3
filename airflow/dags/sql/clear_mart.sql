@@ -8,3 +8,6 @@ DROP TABLE IF EXISTS mart.tb_posts CASCADE;
 DROP TABLE IF EXISTS mart.tb_comments CASCADE;
 DROP TABLE IF EXISTS mart.tb_car CASCADE;
 DROP TABLE IF EXISTS mart.tb_web_source CASCADE;
+
+DROP MATERIALIZED VIEW IF EXISTS mart.vw_social_listening;
+DROP MATERIALIZED VIEW IF EXISTS mart.vw_social_attention;
