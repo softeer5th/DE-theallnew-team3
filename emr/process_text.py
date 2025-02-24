@@ -63,93 +63,22 @@ def get_timestamp(year, month, day):
     return start_timestamp, end_timestamp
 
 
-def save_missing_post_data(df, car_name, year, month, day):
-    """
-    결측치가 있는 데이터를 별도로 저장하는 함수
-    """
-    # 결측치가 있는 데이터를 필터링
-    missing_data_df = df.filter(
-        col("id").isNull()
-        | col("car_name").isNull()
-        | col("source").isNull()
-        | col("title").isNull()
-        | col("nickname").isNull()
-        | col("article").isNull()
-        | col("view_count").isNull()
-        | (col("view_count") < 0)
-        | col("like_count").isNull()
-        | (col("like_count") < 0)
-        | col("dislike_count").isNull()
-        | (col("dislike_count") < 0)
-        | col("date").isNull()
-        | col("comment_count").isNull()
-        | (col("comment_count") < 0)
-    )
-
-    if missing_data_df.count() > 0:
-        # 누락된 데이터가 있을 경우, 별도의 파일로 저장
-        missing_data_df.write.mode("overwrite").parquet(
-            f"s3a://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/failed_df/post"
-        )
-
-    # 결측치가 있는 데이터를 제외한 DataFrame 반환
-    df_cleaned = df.filter(
-        col("id").isNotNull()
-        & col("car_name").isNotNull()
-        & col("source").isNotNull()
-        & col("title").isNotNull()
-        & col("nickname").isNotNull()
-        & col("article").isNotNull()
-        & col("view_count").isNotNull()
-        & col("like_count").isNotNull()
-        & col("dislike_count").isNotNull()
-        & col("date").isNotNull()
-        & col("comment_count").isNotNull()
-    )
-
-    return df_cleaned
+def filter_missing_post(df):
+    df = df.dropna()
+    df = df.filter(F.col("like_cnt") >= 0)
+    df = df.filter(F.col("dislike_cnt") >= 0)
+    df = df.filter(F.col("view_cnt") >= 0)
+    df = df.filter(F.col("comment_cnt") >= 0)
+    return df
 
 
-def save_missing_comment_data(df, car_name, year, month, day):
-    """
-    결측치가 있는 데이터를 별도로 저장하는 함수
-    """
-    # 결측치가 있는 데이터를 필터링 (timestamp, title 등에서 null 체크)
-    missing_data_df = df.filter(
-        col("comment_uuid").isNull()
-        | col("author").isNull()
-        | col("content").isNull()
-        | col("create_timestamp").isNull()
-        | col("like_cnt").isNull()
-        | (col("like_cnt") < 0)
-        | col("dislike_cnt").isNull()
-        | (col("dislike_cnt") < 0)
-    )
-
-    if missing_data_df.count() > 0:
-        # 누락된 데이터가 있을 경우, 별도의 파일로 저장
-        missing_data_df.write.mode("overwrite").parquet(
-            f"s3a://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/failed_df/comment"
-        )
-
-    # 결측치가 있는 데이터를 제외한 DataFrame 반환
-    df_cleaned = df.filter(
-        col("comment_uuid").isNotNull()
-        & col("author").isNotNull()
-        & col("content").isNotNull()
-        & col("create_timestamp").isNotNull()
-        & col("like_cnt").isNotNull()
-        & col("dislike_cnt").isNotNull()
-    )
-
-    return df_cleaned
+def filter_missing_comment(df):
+    # just skip missing comment
+    # 굳이 필요하다면 filter_missing_post에서 comments 내부를 검사하는 것이 좋을 듯.
+    pass
 
 
-def seperate_post_and_comment(df, car_name, year, month, day):
-
-    # post data의 결측치&이상치 따로 저장
-    df = save_missing_post_data(df, car_name, year, month, day)
-
+def seperate_post_and_comment(df):
     # `uuid()`로 `post_uuid` 생성
     post_df = df.withColumn("post_uuid", F.expr("uuid()"))
 
@@ -176,9 +105,6 @@ def seperate_post_and_comment(df, car_name, year, month, day):
         F.col("comment.comment_like_count").alias("like_cnt"),
         F.col("comment.comment_dislike_count").alias("dislike_cnt"),
     )
-
-    # comment data의 결측치&이상치 따로 저장
-    comment_df = save_missing_comment_data(comment_df, car_name, year, month, day)
 
     post_df = post_df.drop("comments")
 
@@ -267,8 +193,15 @@ def process_text(year, month, day, car_name):
         schema=INPUT_SCHEMA,
     )
 
+    cleaned_raw_df = filter_missing_post(raw_df)
+    failed_raw_df = raw_df.subtract(cleaned_raw_df)
+
+    failed_raw_df.write.mode("overwrite").parquet(
+        f"s3://{BUCKET_NAME}/{car_name}/{year}/{month}/{day}/failed_raw"
+    )
+
     # raw 데이터를 post, comment로 분리하기
-    post_df, comment_df = seperate_post_and_comment(raw_df, car_name, year, month, day)
+    post_df, comment_df = seperate_post_and_comment(cleaned_raw_df)
 
     # parquet 저장
     post_df.write.mode("overwrite").parquet(
