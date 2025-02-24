@@ -111,7 +111,7 @@ with DAG(
     params={"car_type": CAR_TYPE_PARAM},
     template_searchpath=[os.path.join(os.path.dirname(__file__), "sql")],
     start_date=datetime(2025, 1, 1),
-    schedule_interval="0 12 * * *",
+    schedule_interval=None,
     catchup=False,
     default_args=default_args,
     max_active_runs=1,
