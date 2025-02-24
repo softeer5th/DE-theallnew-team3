@@ -44,7 +44,7 @@ USING (
     ) sub
     WHERE rn = 1
 ) AS stage
-ON mart.tb_comments.comment_id = sub.comment_id
+ON mart.tb_comments.comment_id = stage.comment_id
 WHEN MATCHED THEN 
     UPDATE SET author      = stage.author,
                content     = stage.content,
