@@ -9,10 +9,13 @@ CREATE TABLE IF NOT EXISTS mart.tb_posts(
 );
 
 CREATE TABLE IF NOT EXISTS mart.tb_comments(
-    comment_id    VARCHAR(255)      PRIMARY KEY,
+    post_id       VARCHAR(255)      NOT NULL,
+    comment_id    VARCHAR(255)      NOT NULL,
     author        VARCHAR(255)      NOT NULL,
     content       VARCHAR(65535)    NOT NULL,
-    create_date   DATE              NOT NULL
+    create_date   DATE              NOT NULL,
+
+    PRIMARY KEY (post_id, comment_id)
 );
 
 CREATE TABLE IF NOT EXISTS mart.tb_car(
@@ -36,7 +39,7 @@ CREATE TABLE IF NOT EXISTS mart.tb_posts_metric(
     comment_cnt     BIGINT NULL,
     ingestion_date  DATE   NOT NULL,
 
-    FOREIGN KEY (post_id)   REFERENCES mart.tb_posts        (post_id),
+    FOREIGN KEY (post_id, comment_id) REFERENCES mart.tb_posts  (post_id, comment_id),
     FOREIGN KEY (car_name)  REFERENCES mart.tb_car          (car_name),
     FOREIGN KEY (source)    REFERENCES mart.tb_web_source   (source)
 );

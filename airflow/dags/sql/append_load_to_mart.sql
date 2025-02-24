@@ -16,7 +16,8 @@ SELECT post_id,
     view_cnt,
     comment_cnt,
     CURRENT_DATE as ingestion_date
-FROM staging.tb_posts;
+FROM staging.tb_posts
+ORDER BY car_name, source;
 
 INSERT INTO mart.tb_comments_metric(
     post_id,
@@ -36,7 +37,8 @@ SELECT p.post_id,
     CURRENT_DATE as ingestion_date
 FROM staging.tb_comments as c
     JOIN staging.tb_posts as p
-        ON p.post_uuid = c.post_uuid;
+        ON p.post_uuid = c.post_uuid
+ORDER BY car_name, source;
 
 INSERT INTO mart.tb_keywords(
     post_id,
@@ -70,3 +72,4 @@ FROM staging.tb_sentences as s
         ON s.post_uuid = p.post_uuid
     JOIN staging.tb_comments as c
         ON s.comment_uuid = c.comment_uuid
+ORDER BY car_name, source;

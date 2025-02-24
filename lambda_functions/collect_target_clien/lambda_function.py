@@ -48,7 +48,7 @@ def lambda_handler(event, context):
             soup = BeautifulSoup(html.content, "html.parser")
 
             search_result = soup.find("div", "total_search")
-            posts = search_result.find_all("div", "list_item symph_row jirum")
+            posts = search_result.find_all("div", "list_item") if search_result else None
             for post in posts:
                 timestamp = post.find("span", "timestamp").text  # 게시물 날짜 추출
                 post_date = timestamp[:10]  # "YYYY-MM-DD"
