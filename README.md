@@ -62,6 +62,7 @@ airflow 이용해 task 관리하는 폴더
 → 소비자들이 작성한 게시글 및 댓글들을 수집한 데이터에서 키워드를 추출하여 보여주고자 합니다. 
 
 ## 2. 시스템 아키텍처
+![Image](https://github.com/user-attachments/assets/4e75aec1-37c3-4e8a-8ca8-be085f0cc95d)
 
 ![image.png](%E1%84%91%E1%85%B3%E1%84%85%E1%85%A9%E1%84%8C%E1%85%A6%E1%86%A8%E1%84%90%E1%85%B3%20README%20md%2019e2e4f81c5480978fede95a3b9c6df8/image%201.png)
 
