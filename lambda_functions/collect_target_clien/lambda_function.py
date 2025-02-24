@@ -39,16 +39,23 @@ def lambda_handler(event, context):
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"
         }
 
+        end_flag = False
         for i in range(50):
             if i > 0:
                 params["p"] = i
             html = requests.get(
-                TARGET_URL, params=params, headers=headers, allow_redirects=False
+                TARGET_URL,
+                params=params,
+                headers=headers,
+                allow_redirects=False,
+                timeout=5,
             )
             soup = BeautifulSoup(html.content, "html.parser")
 
             search_result = soup.find("div", "total_search")
-            posts = search_result.find_all("div", "list_item") if search_result else None
+            posts = (
+                search_result.find_all("div", "list_item") if search_result else None
+            )
             for post in posts:
                 timestamp = post.find("span", "timestamp").text  # 게시물 날짜 추출
                 post_date = timestamp[:10]  # "YYYY-MM-DD"
@@ -59,7 +66,10 @@ def lambda_handler(event, context):
                 # 수집 대상 날짜보다 이전 날짜가 나오면 중단
                 if post_date < start_date:
                     # print("더 이상 수집할 데이터 없음. 종료.")
+                    end_flag = True
                     break
+            if end_flag:
+                break
 
     urls = list(set(urls))
 
