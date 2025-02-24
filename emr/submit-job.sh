@@ -22,7 +22,7 @@ DAY=$(echo $DATE | cut -d'-' -f3)
 ENCODED_KEYWORD=$(printf "%s" "$KEYWORD")
 
 # 설정
-S3_SCRIPT_PATH="s3://the-all-new-bucket/py/test_dataskew.py"
+S3_SCRIPT_PATH="s3://the-all-new-bucket/py/process_text.py"
 
 # 실행할 EMR 클러스터 ID
 CLUSTER_ID="j-LCYZKT3LF70C"
