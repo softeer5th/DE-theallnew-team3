@@ -128,16 +128,16 @@ with DAG(
     }
     PAYLOAD = json.dumps(PAYLOAD_JSON)
 
-    with TaskGroup(group_id="crawl_youtube_task_group") as crawl_youtube_task_group:
+    with TaskGroup(group_id="youtube") as crawl_youtube_task_group:
         collect_target_video = LambdaInvokeFunctionOperator(
-            task_id="collect_target_video",
+            task_id="collect",
             function_name="collect_target_video",
             payload=PAYLOAD,
         )
 
         BATCH_SIZE = 10
         crawl_youtube = LambdaInvokeFunctionOperator.partial(
-            task_id="crawl_youtube",
+            task_id="crawl",
             function_name="crawl_youtube",
             botocore_config={"read_timeout": 600, "connect_timeout": 600},
         ).expand(
@@ -375,8 +375,8 @@ with DAG(
         >> get_target_files
         >> generate_payload
         >> invoke_lambda
-        >> init_staging_task
         >> validate_parquet
+        >> init_staging_task
         >> copy_to_staging_tasks
     )
 
