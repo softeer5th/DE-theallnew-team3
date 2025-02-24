@@ -25,7 +25,7 @@ python src/etl.py '2025-01' '투싼'
 
 # 주제: 페이스 리프트 및 새로 출시한 차량에 대한 소비자의 반응을 모니터링하는 Data Product
 
-![image.png](%E1%84%91%E1%85%B3%E1%84%85%E1%85%A9%E1%84%8C%E1%85%A6%E1%86%A8%E1%84%90%E1%85%B3%20README%20md%2019e2e4f81c5480978fede95a3b9c6df8/image.png)
+<이미지 추가>
 
 - 소비자의 반응을 매일 수집하여 업데이트 해줍니다. 
 마케팅 담당자가 마케팅 결과에 대한 즉각적인 반응을 확인할 수 있습니다.
@@ -38,18 +38,22 @@ https://youtube….
 
 ### 팀원소개
 
-이름+깃 아이디만
+| 이름 | 깃허브 주소 |
+| --- | --- |
+| 김건아 | https://github.com/KimGona |
+| 김민재 | https://github.com/openkmj |
+| 양주영 | https://github.com/yjy323 |
 
-### 폴더 개요 - 링크달기
+### 폴더 개요
 
-- src/
-로컬에서 크롤링 및 transform 테스트하는 코드
-- lambda_functions/
-aws 람다 함수에서 실행하는 코드들 (데이터 crawling 및 문장 감성 분석)
-- emr/
-emr에서 실행할 스파크 코드
-- airflow/
+- [airflow/](https://github.com/softeer5th/DE-theallnew-team3/tree/main/airflow)
 airflow 이용해 task 관리하는 폴더
+- [emr/](https://github.com/softeer5th/DE-theallnew-team3/tree/main/emr)
+emr에서 실행할 스파크 코드
+- [lambda_functions/](https://github.com/softeer5th/DE-theallnew-team3/tree/main/lambda_functions)
+aws 람다 함수에서 실행하는 코드들 (데이터 crawling 및 문장 감성 분석)
+- [src/](https://github.com/softeer5th/DE-theallnew-team3/tree/main/src)
+로컬에서 크롤링 및 transform 테스트하는 코드
 
 # 프로젝트 소개
 
@@ -64,8 +68,6 @@ airflow 이용해 task 관리하는 폴더
 ## 2. 시스템 아키텍처
 ![Image](https://github.com/user-attachments/assets/4e75aec1-37c3-4e8a-8ca8-be085f0cc95d)
 
-![image.png](%E1%84%91%E1%85%B3%E1%84%85%E1%85%A9%E1%84%8C%E1%85%A6%E1%86%A8%E1%84%90%E1%85%B3%20README%20md%2019e2e4f81c5480978fede95a3b9c6df8/image%201.png)
-
 - aws lambda로 웹사이트를 크롤링합니다.(최초 데이터는 .json으로 저장)
 - EMR에서 텍스트 전처리를 수행합니다.(post, comment 데이터 분리 및 sentence 데이터 분리)
 - 이후 lambda에서 openai api를 이용해 자연어 처리를 수행합니다.
@@ -77,13 +79,13 @@ airflow 이용해 task 관리하는 폴더
 
 - s3
 
-![image.png](%E1%84%91%E1%85%B3%E1%84%85%E1%85%A9%E1%84%8C%E1%85%A6%E1%86%A8%E1%84%90%E1%85%B3%20README%20md%2019e2e4f81c5480978fede95a3b9c6df8/image%202.png)
+![Image](https://github.com/user-attachments/assets/2be1a9ff-7cfa-41ff-89b4-5bc29f571b43)
 
 추출한 데이터와 transform한 데이터를 parquet형태로 s3에 저장합니다.
 
 - Redshift
 
-![image.png](%E1%84%91%E1%85%B3%E1%84%85%E1%85%A9%E1%84%8C%E1%85%A6%E1%86%A8%E1%84%90%E1%85%B3%20README%20md%2019e2e4f81c5480978fede95a3b9c6df8/image%203.png)
+![Image](https://github.com/user-attachments/assets/931cb15d-410d-4d7a-9a74-52df3d123f38)
 
 clear_mart.sql, init_mart.sql, clear_staging.sql, init_staging.sql로 Redshift 스키마를 설정합니다. 
 
