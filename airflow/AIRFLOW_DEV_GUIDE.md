@@ -1,4 +1,4 @@
-# Airflow 개발환경 가이드
+# Airflow 개발 가이드
 
 ## Airflow 실행
 
@@ -75,3 +75,14 @@ airflow connections add slack_default \
 ## DAG 추가
 
 dags 폴더 내부에 원하는 DAG 파일을 추가해주세요.
+
+## MWAA 배포
+
+MWAA 배포는 dags 폴더를 S3에 업로드하는 방식으로 진행됩니다.
+
+``` bash
+cd airflow
+./deploy.sh
+```
+
+
