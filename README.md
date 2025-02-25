@@ -27,35 +27,44 @@ https://youtu.be/Fyyahbjk9A8
 
 ## 데이터 스키마
 
-- s3
+### Staging Tables
+> 분산 클러스터 작업과 스토리지 작업의 의존성을 낮추기 위해 데이터를 임시 테이블에 저장하는 방식으로 ELT 프로세스를 처리합니다.
+>
+> Parquet 형태로 S3에 저장된 데이터와 1:1로 매칭되도록 테이블을 설계하였습니다.
 
 ![Image](https://github.com/user-attachments/assets/2be1a9ff-7cfa-41ff-89b4-5bc29f571b43)
 
-추출한 데이터와 transform한 데이터를 parquet형태로 s3에 저장합니다.
-
-- Redshift
+### Mart Tables
 
 ![Image](https://github.com/user-attachments/assets/931cb15d-410d-4d7a-9a74-52df3d123f38)
 
-clear_mart.sql, init_mart.sql, clear_staging.sql, init_staging.sql로 Redshift 스키마를 설정합니다.
+> 분석 목적과 데이터의 변경 주기 특성에 따라 적재 전략을 결정하였습니다.
+>
+> 변경 이력과 같은 시계열 정보를 저장해야 할 팩트 테이블을 파란색으로 표시하였습니다. <br>
+> 변경이 거의 발생하지 않는 정보를 저장해야 할 테이블 또는 디멘전 테이블을 보라색으로 표시하였습니다. <br>
+>
+> 적재 전략을 반영하기 위해 팩트 테이블은 ID와 Timestamp를 기준으로 Append Load 하였고, 디멘전 테이블을 ID를 기준으로 Overwrite Load 하였습니다.
 
-Airflow에서 S3ToRedshiftOperator를 활용해 S3에 저장된 parquet 데이터를 redshift의 staging table로 copy합니다.
+### View Tables
+> 분석 단계에서 항상 최신 데이터를 활용할 수 있도록 지원하면서 쿼리 효율을 높이기 위해 Materialzied View를 정의하고, 파이프라인에 REFRESH 단계를 통합하였습니다.
 
-조회수, 댓글수, 좋아요 수 등 데이터를 여러번 수집할 때마다 바뀌는 값은 append_load_to_mart.sql을 이용해 중복해서 저장합니다.
+![Image](https://github.com/user-attachments/assets/b261d562-ac80-43f2-a68e-9babb6e406be)
 
-게시글의 제목, 본문내용, 댓글내용 등 데이터를 여러 번 수집해도 바뀌지 않는 값은 upsert_load_to_mart.sql로 저장해 unique한 값을 가지게 됩니다.
+### ELT 프로세스
+> 구체적인 프로세스는 `/airflow/dags/sql/README.MD`에 소개되어 있습니다. 아래 **Project Details**를 참고해주세요.
 
 ## Project Details
 
 ### [Airflow](./airflow/README.md)
-
-Airflow(AWS MWAA)를 통해 파이프라인을 구축합니다.
+> Airflow(AWS MWAA)를 통해 파이프라인을 구축합니다.
 
 ### [EMR](./emr/README.md)
-
-EMR에서 실행할 스파크 코드
+> EMR에서 실행할 스파크 코드
 
 ### [Lambda](./lambda_functions/README.md)
+
+### [ELT Process](./airflow/dags/sql/README.md)
+> S3에서 Redshift로의 ELT 프로세스 및 프로세스에 포함된 SQL 스크립트
 
 AWS 람다 함수
 
