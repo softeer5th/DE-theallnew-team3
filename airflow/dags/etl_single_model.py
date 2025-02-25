@@ -324,29 +324,29 @@ with DAG(
 
     upsert_staging_to_mart_task = RedshiftDataOperator(
         task_id="Task-upsert-Redshift-mart-table",
-        sql="upsert_load_to_mart.sql",
-        workgroup_name=WORKGROUP_NAME,
-        region_name=REGION,
-        database=DATABASE,
-        aws_conn_id="aws_default",
+        sql="load_upsert_mart.sql",
+        workgroup_name="the-all-new-workgroup",
+        region_name="ap-northeast-2",
+        database="dev",
+        aws_conn_id='aws_default',
     )
 
     append_staging_to_mart_task = RedshiftDataOperator(
         task_id="Task-append-Redshift-mart-table",
-        sql="append_load_to_mart.sql",
-        workgroup_name=WORKGROUP_NAME,
-        region_name=REGION,
-        database=DATABASE,
-        aws_conn_id="aws_default",
+        sql="load_append_mart.sql",
+        workgroup_name="the-all-new-workgroup",
+        region_name="ap-northeast-2",
+        database="dev",
+        aws_conn_id='aws_default',
     )
 
     refresh_view_task = RedshiftDataOperator(
         task_id="Task-Refresh-Redshift-view",
-        sql="analysis_view.sql",
-        workgroup_name=WORKGROUP_NAME,
-        region_name=REGION,
-        database=DATABASE,
-        aws_conn_id="aws_default",
+        sql="refresh_analysis_mv.sql",
+        workgroup_name="the-all-new-workgroup",
+        region_name="ap-northeast-2",
+        database="dev",
+        aws_conn_id='aws_default',
     )
 
     clear_staging_task = RedshiftDataOperator(
